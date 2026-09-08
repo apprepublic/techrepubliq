@@ -28,12 +28,15 @@ interface Customer {
   id: string;
   email: string;
   name: string;
+  phone?: string;
+  phone_country_code?: string;
+  country?: string;
   emailVerified?: boolean;
 }
 
 export const api = {
   auth: {
-    register: (body: { email: string; name: string; password: string }) =>
+    register: (body: { email: string; name: string; password: string; phone?: string; phone_country_code?: string; country?: string }) =>
       request<{ token: string; customer: Customer }>("/api/auth/register", {
         method: "POST",
         body: JSON.stringify(body),

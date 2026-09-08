@@ -43,7 +43,9 @@ export function Footer() {
                 𝕏
               </a>
               <a
-                href="#"
+                href="https://www.linkedin.com/company/techrepubliq/"
+                target="_blank"
+                rel="noopener noreferrer"
                 aria-label="TechRepubliQ on LinkedIn"
                 className="w-9 h-9 rounded-full border border-[#242233] flex items-center justify-center text-[#9C99AC] no-underline transition-colors duration-150 hover:text-[#C8102E] hover:border-[#C8102E]"
               >

@@ -34,7 +34,7 @@ export const auth = {
       return error(400, "Invalid request body");
     }
 
-    const { email, name, password } = body;
+    const { email, name, password, phone, phone_country_code, country } = body;
     if (!email || !name || !password) return error(400, "All fields are required");
     if (!isValidEmail(email)) return error(400, "Invalid email format");
     if (password.length < 6) return error(400, "Password must be at least 6 characters");
@@ -48,8 +48,8 @@ export const auth = {
     const verificationToken = generateId() + generateId();
 
     await env.DB.prepare(
-      "INSERT INTO customers (id, email, name, password_hash, email_verified, verification_token) VALUES (?, ?, ?, ?, 0, ?)"
-    ).bind(id, email, name, passwordHash, verificationToken).run();
+      "INSERT INTO customers (id, email, name, password_hash, email_verified, verification_token, phone, phone_country_code, country) VALUES (?, ?, ?, ?, 0, ?, ?, ?, ?)"
+    ).bind(id, email, name, passwordHash, verificationToken, phone || null, phone_country_code || null, country || null).run();
 
     const token = generateToken();
     const expires = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
@@ -59,7 +59,7 @@ export const auth = {
     const origin = request.headers.get("Origin") || "https://techrepubliq.pages.dev";
     env.ctx.waitUntil(sendVerificationEmail(env, email, name, verificationToken, origin));
 
-    return json({ token, customer: { id, email, name, emailVerified: false } }, 201);
+    return json({ token, customer: { id, email, name, phone, phone_country_code, country, emailVerified: false } }, 201);
   },
 
   login: async (request: Request, env: Env) => {
@@ -87,9 +87,14 @@ export const auth = {
     await env.DB.prepare("INSERT INTO sessions (token, customer_id, expires_at) VALUES (?, ?, ?)")
       .bind(token, customer.id, expires).run();
 
+    // Fetch full customer with phone/country
+    const full = await env.DB.prepare(
+      "SELECT id, email, name, phone, phone_country_code, country, email_verified FROM customers WHERE id = ?"
+    ).bind(customer.id).first<any>();
+
     return json({
       token,
-      customer: { id: customer.id, email: customer.email, name: customer.name, emailVerified: !!customer.email_verified },
+      customer: { id: full.id, email: full.email, name: full.name, phone: full.phone, phone_country_code: full.phone_country_code, country: full.country, emailVerified: !!full.email_verified },
     });
   },
 
@@ -100,8 +105,8 @@ export const auth = {
     if (!session) return error(401, "Unauthorized");
 
     const customer = await env.DB.prepare(
-      "SELECT id, email, name, created_at, email_verified FROM customers WHERE id = ?"
-    ).bind(session.customer_id).first<{ id: string; email: string; name: string; created_at: string; email_verified: number }>();
+      "SELECT id, email, name, phone, phone_country_code, country, created_at, email_verified FROM customers WHERE id = ?"
+    ).bind(session.customer_id).first<any>();
 
     if (!customer) return error(404, "Customer not found");
 
