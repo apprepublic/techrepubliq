@@ -11,6 +11,8 @@ declare module "lucide-react" {
   export const Clock: FC<IconProps>;
   export const Eye: FC<IconProps>;
   export const EyeOff: FC<IconProps>;
+  export const Loader2: FC<IconProps>;
   export const Menu: FC<IconProps>;
   export const X: FC<IconProps>;
+  export const XCircle: FC<IconProps>;
 }

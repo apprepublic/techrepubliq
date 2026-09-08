@@ -24,6 +24,8 @@ const router = Router();
 router.post("/api/auth/register", auth.register);
 router.post("/api/auth/login", auth.login);
 router.get("/api/auth/me", auth.me);
+router.get("/api/auth/verify", auth.verify);
+router.post("/api/auth/resend-verification", auth.resendVerification);
 
 // Quotes
 router.post("/api/quotes/generate", quotes.generate);
@@ -49,10 +51,25 @@ router.delete("/api/customers/me", customers.remove);
 // 404
 router.all("*", () => error(404, "Not found"));
 
+function handleOptions(request: Request): Response {
+  const origin = request.headers.get("Origin") || "*";
+  return new Response(null, {
+    status: 204,
+    headers: {
+      "Access-Control-Allow-Origin": origin,
+      "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+      "Access-Control-Allow-Headers": "Content-Type, Authorization",
+      "Access-Control-Max-Age": "86400",
+    },
+  });
+}
+
 export default {
   fetch: (request: Request, env: Env, ctx: ExecutionContext) => {
+    if (request.method === "OPTIONS") return handleOptions(request);
+
     env.ctx = ctx;
-    return router.handle(request, env).then(json).catch((err) => {
+    return router.handle(request, env).catch((err) => {
       console.error(err);
       return error(500, "Internal server error");
     });

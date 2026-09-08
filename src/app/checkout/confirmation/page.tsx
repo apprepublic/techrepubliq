@@ -1,17 +1,16 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/Button";
 import { CheckCircle } from "lucide-react";
 
 export default function ConfirmationPage() {
-  const searchParams = useSearchParams();
-  const ref = searchParams.get("ref") ?? "";
+  const [ref, setRef] = useState("");
 
   useEffect(() => {
     document.title = "Order Confirmed — TechRepubliQ";
+    setRef(new URLSearchParams(window.location.search).get("ref") ?? "");
   }, []);
 
   return (

@@ -122,7 +122,7 @@ export default function HomePage() {
     { title: "Optimization", desc: "Speed, SEO, and infrastructure audits that make an existing product faster and cheaper to run.", icon: "clock" },
   ];
 
-  const serviceIcons: Record<string, JSX.Element> = {
+  const serviceIcons: Record<string, React.ReactNode> = {
     code: <><polyline points="16 18 22 12 16 6" /><polyline points="8 6 2 12 8 18" /></>,
     smartphone: <><rect x="7" y="2" width="10" height="20" rx="2" /><line x1="11" y1="18" x2="13" y2="18" /></>,
     palette: <><circle cx="13.5" cy="6.5" r=".5" /><circle cx="17.5" cy="10.5" r=".5" /><circle cx="8.5" cy="7.5" r=".5" /><circle cx="6.5" cy="12.5" r=".5" /><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.9 0 1.5-.7 1.5-1.5 0-.4-.2-.8-.4-1.1-.3-.3-.4-.7-.4-1.1 0-.8.7-1.5 1.5-1.5H16c3.3 0 6-2.7 6-6 0-4.4-4.5-8-10-8z" /></>,

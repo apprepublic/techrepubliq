@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "motion/react";
 import { DimensionLine } from "@/components/DimensionLine";
 import { Button } from "@/components/Button";
@@ -70,7 +70,6 @@ function saveSession(data: FormData, step: number) {
 }
 
 export default function QuotePage() {
-  const searchParams = useSearchParams();
   const router = useRouter();
   const [step, setStep] = useState(0);
   const [direction, setDirection] = useState(1);
@@ -81,13 +80,15 @@ export default function QuotePage() {
   const stepRef = useRef<HTMLDivElement>(null);
   const firstFieldRef = useRef<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>(null);
 
+  const initialCategory = typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("category") ?? "" : "";
+
   const [formData, setFormData] = useState<FormData>(() => {
     const saved = loadSession();
     if (saved) {
       return saved.data;
     }
     return {
-      category: searchParams.get("category") ?? "",
+      category: initialCategory,
       description: "",
       features: [],
       timeline: "",

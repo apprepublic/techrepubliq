@@ -1,11 +1,11 @@
 "use client";
 
-import { useSearchParams, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "motion/react";
 import { CornerBracketFrame } from "@/components/CornerBracketFrame";
 import { Button } from "@/components/Button";
 import { services } from "@/lib/utils";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { CheckCircle2, Clock } from "lucide-react";
 
 // Mock quote generation
@@ -50,16 +50,17 @@ function generateQuote(
 }
 
 export default function QuoteResultPage() {
-  const searchParams = useSearchParams();
   const router = useRouter();
   const [showAllScope, setShowAllScope] = useState(false);
   const [humanReview, setHumanReview] = useState(false);
+  const [params, setParams] = useState({ category: "", description: "", timeline: "" });
 
-  const category = searchParams.get("category") ?? "";
-  const description = searchParams.get("desc") ?? "";
-  const timeline = searchParams.get("timeline") ?? "";
+  useEffect(() => {
+    const sp = new URLSearchParams(window.location.search);
+    setParams({ category: sp.get("category") ?? "", description: sp.get("desc") ?? "", timeline: sp.get("timeline") ?? "" });
+  }, []);
 
-  const quote = generateQuote(category, description, timeline);
+  const quote = generateQuote(params.category, params.description, params.timeline);
   const scopeItems = quote.scopeSummary;
 
   const [copied, setCopied] = useState(false);
@@ -188,7 +189,7 @@ export default function QuoteResultPage() {
                     className="w-full"
                     onClick={() =>
                       router.push(
-                        `/checkout?ref=${quote.referenceId}&amount=${quote.price}&category=${category}`
+                        `/checkout?ref=${quote.referenceId}&amount=${quote.price}&category=${params.category}`
                       )
                     }
                   >

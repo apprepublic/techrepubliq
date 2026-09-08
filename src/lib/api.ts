@@ -1,4 +1,4 @@
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8787";
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "https://techrepubliq-api.areh4biz.workers.dev";
 
 async function request<T>(
   path: string,
@@ -24,19 +24,28 @@ async function request<T>(
   return data;
 }
 
+interface Customer {
+  id: string;
+  email: string;
+  name: string;
+  emailVerified?: boolean;
+}
+
 export const api = {
   auth: {
     register: (body: { email: string; name: string; password: string }) =>
-      request<{ token: string; customer: { id: string; email: string; name: string } }>("/api/auth/register", {
+      request<{ token: string; customer: Customer }>("/api/auth/register", {
         method: "POST",
         body: JSON.stringify(body),
       }),
     login: (body: { email: string; password: string }) =>
-      request<{ token: string; customer: { id: string; email: string; name: string } }>("/api/auth/login", {
+      request<{ token: string; customer: Customer }>("/api/auth/login", {
         method: "POST",
         body: JSON.stringify(body),
       }),
-    me: () => request<{ customer: any }>("/api/auth/me"),
+    me: () => request<{ customer: Customer }>("/api/auth/me"),
+    resendVerification: () =>
+      request<{ sent: boolean }>("/api/auth/resend-verification", { method: "POST" }),
   },
   quotes: {
     generate: (body: {
