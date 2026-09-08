@@ -1,0 +1,138 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  :focus-visible {
+    outline: 2px solid #C8102E;
+    outline-offset: 2px;
+  }
+}
+
+@layer components {
+  .dimension-line {
+    @apply relative flex items-center;
+  }
+
+  .dimension-line::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background-color: #DFDBD3;
+    top: 50%;
+    transform: translateY(-50%);
+  }
+
+  .dimension-tick {
+    @apply relative z-10 flex flex-col items-center;
+  }
+
+  .dimension-tick::before {
+    content: '';
+    width: 1px;
+    height: 8px;
+    background-color: #DFDBD3;
+    margin-bottom: 4px;
+  }
+
+  .dimension-tick.active::before {
+    background-color: #C8102E;
+  }
+
+  .dimension-tick.active .tick-label {
+    color: #C8102E;
+  }
+
+  .corner-bracket {
+    position: relative;
+  }
+
+  .corner-bracket::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 12px;
+    height: 1.5px;
+    background-color: #C8102E;
+  }
+
+  .corner-bracket::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 1.5px;
+    height: 12px;
+    background-color: #C8102E;
+  }
+
+  .corner-bracket .cb-tr {
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 12px;
+    height: 1.5px;
+    background-color: #C8102E;
+  }
+
+  .corner-bracket .cb-tr-v {
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 1.5px;
+    height: 12px;
+    background-color: #C8102E;
+  }
+
+  .corner-bracket .cb-br {
+    position: absolute;
+    bottom: 0;
+    right: 0;
+    width: 12px;
+    height: 1.5px;
+    background-color: #C8102E;
+  }
+
+  .corner-bracket .cb-br-v {
+    position: absolute;
+    bottom: 0;
+    right: 0;
+    width: 1.5px;
+    height: 12px;
+    background-color: #C8102E;
+  }
+
+  .corner-bracket .cb-bl {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 12px;
+    height: 1.5px;
+    background-color: #C8102E;
+  }
+
+  .corner-bracket .cb-bl-v {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 1.5px;
+    height: 12px;
+    background-color: #C8102E;
+  }
+}

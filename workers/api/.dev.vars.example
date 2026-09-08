@@ -1,0 +1,5 @@
+# Worker secrets (never commit this file)
+PAYSTACK_SECRET_KEY=pst_xxx
+STRIPE_SECRET_KEY=sk_xxx
+JWT_SECRET=change-me-to-a-random-string
+FROM_EMAIL=noreply@techrepubliq.com

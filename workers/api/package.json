@@ -1,0 +1,17 @@
+{
+  "name": "techrepubliq-api",
+  "private": true,
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "db:migrate": "wrangler d1 migrations apply techrepubliq"
+  },
+  "dependencies": {
+    "itty-router": "^5.0.18"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20250201.0",
+    "typescript": "^5.7.3",
+    "wrangler": "^4.0.0"
+  }
+}

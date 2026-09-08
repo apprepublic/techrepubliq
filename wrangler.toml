@@ -1,0 +1,27 @@
+name = "techrepubliq-api"
+main = "src/index.ts"
+compatibility_date = "2026-08-01"
+compatibility_flags = ["nodejs_compat"]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "techrepubliq"
+database_id = ""
+
+[[r2_buckets]]
+binding = "ASSETS"
+bucket_name = "techrepubliq-assets"
+
+[[send_email]]
+name = "SEND_EMAIL"
+
+[env]
+  [env.production]
+  [[env.production.d1_databases]]
+  binding = "DB"
+  database_name = "techrepubliq"
+  database_id = ""
+
+# Migrations
+[[migrations]]
+directory = "migrations"

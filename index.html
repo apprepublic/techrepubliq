@@ -1,0 +1,700 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TechRepubliQ — Software, scoped and shipped with precision</title>
+<meta name="description" content="Web, app, and AI automation work, scoped from what you need and quoted before any code is written.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Inter+Tight:wght@600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg-dark: #0A0912;
+    --bg-light: #F6F5F9;
+    --surface-dark: #141220;
+    --surface-light: #FFFFFF;
+    --text-primary: #14121F;
+    --text-on-dark: #F7F6FA;
+    --text-secondary: #6B6876;
+    --text-on-dark-secondary: #9C99AC;
+    --accent: #C8102E;
+    --accent-soft: #FF6B5B;
+    --accent-dim: #FBE2E4;
+    --gradient-accent: linear-gradient(135deg, #FF5C4D 0%, #C8102E 100%);
+    --gradient-blue: linear-gradient(180deg, #0B57F5 0%, #2EA8F5 100%);
+    --success: #22C55E;
+    --border-light: #E8E6F0;
+    --border-dark: #242233;
+    --radius-card: 20px;
+    --radius-pill: 999px;
+    --shadow-card: 0 1px 2px rgba(20,18,31,0.04), 0 8px 24px rgba(20,18,31,0.06);
+    --font-display: 'Inter Tight', sans-serif;
+    --font-body: 'Inter', sans-serif;
+    --ease: cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body {
+    font-family: var(--font-body);
+    color: var(--text-primary);
+    background: var(--bg-light);
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+  img, svg { display: block; max-width: 100%; }
+  a { color: inherit; text-decoration: none; }
+  ul { list-style: none; }
+  button { font: inherit; cursor: pointer; }
+
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 0 32px; }
+  section { padding: 120px 0; }
+  @media (max-width: 768px) {
+    .wrap { padding: 0 20px; }
+    section { padding: 64px 0; }
+  }
+
+  h1, h2, h3 { font-family: var(--font-display); font-weight: 600; letter-spacing: -0.01em; }
+  h1 { font-size: 56px; line-height: 1.08; }
+  h2 { font-size: 36px; line-height: 1.15; }
+  h3 { font-size: 20px; line-height: 1.3; }
+  p.lede { font-size: 18px; line-height: 1.6; color: var(--text-secondary); max-width: 60ch; }
+  @media (max-width: 768px) {
+    h1 { font-size: 36px; }
+    h2 { font-size: 28px; }
+  }
+
+  .btn {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 14px 28px; border-radius: var(--radius-pill);
+    font-weight: 500; font-size: 15px; border: none;
+    transition: transform 150ms var(--ease), box-shadow 150ms var(--ease), background 150ms var(--ease);
+  }
+  .btn-primary { background: var(--gradient-accent); color: #fff; box-shadow: 0 8px 24px rgba(200,16,46,0.28); }
+  .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 12px 28px rgba(200,16,46,0.36); }
+  .btn-primary:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+  .btn-ghost-dark { background: transparent; color: var(--text-on-dark); border: 1px solid var(--border-dark); }
+  .btn-ghost-dark:hover { border-color: var(--text-on-dark-secondary); }
+
+  /* NAV */
+  header.nav {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+    padding: 20px 0; transition: background 220ms var(--ease), backdrop-filter 220ms var(--ease), border-color 220ms var(--ease);
+    border-bottom: 1px solid transparent;
+  }
+  header.nav.scrolled { background: rgba(10,9,18,0.82); backdrop-filter: blur(12px); border-color: var(--border-dark); }
+  .nav-inner { display: flex; align-items: center; justify-content: space-between; }
+  .logo { display: flex; align-items: center; gap: 10px; font-family: var(--font-display); font-weight: 700; font-size: 18px; color: var(--text-on-dark); }
+  .logo-mark { width: 28px; height: 28px; border-radius: 8px; background: var(--gradient-accent); flex-shrink: 0; }
+  .nav-links { display: flex; align-items: center; gap: 4px; list-style: none; }
+  .nav-links a {
+    position: relative; padding: 8px 16px; border-radius: var(--radius-pill);
+    color: var(--text-on-dark-secondary); font-size: 15px; transition: color 150ms var(--ease);
+  }
+  .nav-links a:hover, .nav-links a.active { color: var(--text-on-dark); }
+  .nav-links a.active { background: var(--accent-dim); color: var(--accent); }
+  .nav-cta { display: flex; align-items: center; gap: 16px; }
+  .nav-toggle { display: none; background: none; border: none; color: var(--text-on-dark); font-size: 22px; }
+  @media (max-width: 860px) {
+    .nav-links { display: none; }
+    .nav-toggle { display: block; }
+  }
+
+  /* HERO */
+  .hero {
+    background: var(--bg-dark); color: var(--text-on-dark);
+    padding: 200px 0 120px; overflow: hidden; position: relative;
+  }
+  .hero .wrap { display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 48px; align-items: center; }
+  .hero-dots { display: flex; gap: 6px; margin-bottom: 20px; }
+  .hero-dots span { width: 8px; height: 8px; border-radius: 50%; }
+  .hero-dots span:nth-child(1){ background:#FF5C4D; } .hero-dots span:nth-child(2){ background:#F5B942; }
+  .hero-dots span:nth-child(3){ background:#22C55E; } .hero-dots span:nth-child(4){ background:#4A86E8; }
+  .hero h1 { margin-bottom: 20px; }
+  .hero p.lede { margin-bottom: 32px; color: var(--text-on-dark-secondary); }
+  .hero-ring-wrap { position: relative; display: flex; align-items: center; justify-content: center; }
+  #hero-ring { width: 100%; max-width: 420px; }
+  @media (max-width: 860px) {
+    .hero .wrap { grid-template-columns: 1fr; text-align: left; }
+    .hero { padding: 140px 0 64px; }
+    .hero-ring-wrap { order: -1; max-width: 260px; margin: 0 auto 24px; }
+  }
+
+  /* STAT PANEL */
+  .panel-section { background: var(--bg-dark); color: var(--text-on-dark); padding-bottom: 140px; }
+  .panel-grid { display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 24px; }
+  .panel-hero-card {
+    background: var(--surface-dark); border: 1px solid var(--border-dark); border-radius: var(--radius-card);
+    padding: 48px; display: flex; flex-direction: column; justify-content: flex-end; min-height: 420px;
+    background-image: radial-gradient(circle at 30% 20%, rgba(200,16,46,0.35), transparent 60%);
+  }
+  .panel-hero-card h2 { margin-bottom: 12px; }
+  .panel-hero-card p { color: var(--text-on-dark-secondary); max-width: 40ch; }
+  .stat-stack { display: flex; flex-direction: column; gap: 16px; }
+  .stat-card {
+    background: var(--surface-dark); border: 1px solid var(--border-dark); border-radius: var(--radius-card);
+    padding: 28px; flex: 1; display: flex; flex-direction: column; justify-content: center;
+  }
+  .stat-card.featured { background: var(--gradient-accent); border-color: transparent; }
+  .stat-value { font-family: var(--font-display); font-size: 40px; font-weight: 700; line-height: 1; margin-bottom: 8px; font-variant-numeric: tabular-nums; }
+  .stat-label { color: var(--text-on-dark-secondary); font-size: 15px; }
+  .stat-card.featured .stat-label { color: rgba(255,255,255,0.85); }
+  .stat-badge {
+    display: inline-flex; align-items: center; gap: 6px; margin-top: 12px;
+    background: rgba(255,255,255,0.16); color: #fff; font-size: 13px; padding: 5px 12px; border-radius: var(--radius-pill); width: fit-content;
+  }
+  .stat-badge::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--success); }
+  @media (max-width: 860px) {
+    .panel-grid { grid-template-columns: 1fr; }
+    .stat-stack { flex-direction: column; }
+  }
+
+  /* CONNECTIVE LINE */
+  .connective { background: var(--bg-dark); padding: 0 0 100px; }
+  .connective p { font-size: 22px; line-height: 1.6; color: var(--text-on-dark-secondary); max-width: 46ch; }
+  .connective p span { display: block; opacity: 0.25; transition: opacity 400ms var(--ease); }
+  .connective p span.revealed { opacity: 1; color: var(--text-on-dark); }
+
+  /* SECTION HEADER */
+  .section-head { max-width: 640px; margin-bottom: 56px; }
+  .section-head h2 { margin-bottom: 12px; }
+  .section-head p { color: var(--text-secondary); font-size: 17px; }
+
+  /* SERVICE GRID */
+  .services { background: var(--bg-light); }
+  .service-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+  .service-card {
+    background: var(--surface-light); border: 1px solid var(--border-light); border-radius: var(--radius-card);
+    padding: 32px; box-shadow: var(--shadow-card); transition: transform 150ms var(--ease), box-shadow 150ms var(--ease);
+    opacity: 0; transform: translateY(24px);
+  }
+  .service-card.in-view { opacity: 1; transform: translateY(0); }
+  .service-card:hover { transform: translateY(-4px); box-shadow: 0 4px 8px rgba(20,18,31,0.06), 0 16px 32px rgba(20,18,31,0.1); }
+  .service-icon {
+    width: 44px; height: 44px; border-radius: 12px; background: var(--accent-dim);
+    display: flex; align-items: center; justify-content: center; margin-bottom: 20px;
+  }
+  .service-icon svg { width: 22px; height: 22px; stroke: var(--accent); }
+  .service-card h3 { margin-bottom: 8px; }
+  .service-card p { color: var(--text-secondary); font-size: 15px; margin-bottom: 16px; }
+  .service-link { font-size: 14px; font-weight: 500; color: var(--accent); }
+  @media (max-width: 1024px) { .service-grid { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 640px) { .service-grid { grid-template-columns: 1fr; } }
+
+  /* PROCESS */
+  .process { background: var(--gradient-blue); background-size: 200% 200%; color: #fff; }
+  .process .section-head p { color: rgba(255,255,255,0.82); }
+  .process .section-head h2 { color: #fff; }
+  .process-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  .process-card {
+    background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.14); border-radius: var(--radius-card);
+    padding: 28px; opacity: 0; transform: translateY(24px); transition: none;
+  }
+  .process-card.in-view { opacity: 1; transform: translateY(0); transition: opacity 500ms var(--ease), transform 500ms var(--ease); }
+  .process-num { font-family: var(--font-display); font-size: 13px; font-weight: 700; color: rgba(255,255,255,0.6); margin-bottom: 24px; }
+  .process-card h3 { color: #fff; }
+  @media (max-width: 860px) { .process-grid { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 560px) { .process-grid { grid-template-columns: 1fr; } }
+
+  /* TRUST */
+  .trust { background: var(--bg-light); }
+  .trust-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+  .trust-card {
+    background: var(--surface-light); border: 1px solid var(--border-light); border-radius: var(--radius-card);
+    padding: 32px; opacity: 0; transform: translateY(24px);
+  }
+  .trust-card.in-view { opacity: 1; transform: translateY(0); }
+  .trust-card h3 { margin-bottom: 10px; }
+  .trust-card p { color: var(--text-secondary); font-size: 15px; }
+  @media (max-width: 860px) { .trust-grid { grid-template-columns: 1fr; } }
+
+  /* BUILT ON STRIP */
+  .built-on { background: var(--bg-light); padding: 0 0 120px; }
+  .built-on-label { text-align: center; font-size: 13px; color: var(--text-secondary); margin-bottom: 28px; }
+  .built-on-row { display: flex; justify-content: center; align-items: center; gap: 48px; flex-wrap: wrap; opacity: 0.7; }
+  .built-on-row span { font-family: var(--font-display); font-weight: 600; font-size: 17px; color: var(--text-secondary); }
+
+  /* PRODUCT PREVIEW */
+  .preview { background: var(--bg-dark); color: var(--text-on-dark); overflow: hidden; }
+  .preview .section-head { margin: 0 auto 56px; text-align: center; max-width: 560px; }
+  .preview .section-head p { color: var(--text-on-dark-secondary); }
+  .preview-stage { position: relative; height: 480px; display: flex; align-items: center; justify-content: center; }
+  .mock-card {
+    position: absolute; width: 340px; background: var(--surface-dark); border: 1px solid var(--border-dark);
+    border-radius: var(--radius-card); padding: 24px; box-shadow: 0 24px 60px rgba(0,0,0,0.4);
+  }
+  .mock-card.back { transform: translate(-90px, -20px) rotate(-4deg); opacity: 0.7; }
+  .mock-card.front { transform: translate(90px, 20px) rotate(3deg); }
+  .mock-label { font-size: 12px; color: var(--text-on-dark-secondary); margin-bottom: 12px; }
+  .mock-price { font-family: var(--font-display); font-size: 32px; font-weight: 700; margin-bottom: 4px; }
+  .mock-line { height: 8px; background: var(--border-dark); border-radius: 4px; margin-bottom: 10px; }
+  .mock-line.short { width: 60%; }
+  .mock-btn { margin-top: 16px; padding: 10px 20px; border-radius: var(--radius-pill); background: var(--gradient-accent); font-size: 13px; width: fit-content; }
+  .preview-cta { text-align: center; margin-top: 40px; }
+  @media (max-width: 700px) {
+    .preview-stage { height: 380px; }
+    .mock-card { width: 240px; padding: 18px; }
+    .mock-card.back { transform: translate(-40px, -30px) rotate(-4deg); }
+    .mock-card.front { transform: translate(40px, 30px) rotate(3deg); }
+  }
+
+  /* CTA */
+  .cta { background: var(--bg-light); }
+  .cta-grid { display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 48px; align-items: center; }
+  .cta h2 { margin-bottom: 16px; }
+  .cta p.lede { margin-bottom: 32px; }
+  .cta-graphic { height: 240px; border-radius: var(--radius-card); background: var(--surface-light); border: 1px solid var(--border-light); position: relative; overflow: hidden; }
+  .cta-graphic svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+  @media (max-width: 860px) { .cta-grid { grid-template-columns: 1fr; } .cta-graphic { display: none; } }
+
+  /* FOOTER */
+  footer { background: var(--bg-dark); color: var(--text-on-dark); padding: 80px 0 0; }
+  .footer-top { display: grid; grid-template-columns: 1.4fr 1fr 1fr 1fr; gap: 32px; padding-bottom: 56px; }
+  .footer-brand p { color: var(--text-on-dark-secondary); font-size: 14px; margin-top: 12px; max-width: 32ch; }
+  .footer-social { display: flex; gap: 12px; margin-top: 24px; }
+  .footer-social a {
+    width: 36px; height: 36px; border-radius: 50%; border: 1px solid var(--border-dark);
+    display: flex; align-items: center; justify-content: center; color: var(--text-on-dark-secondary);
+    transition: color 150ms var(--ease), border-color 150ms var(--ease);
+  }
+  .footer-social a:hover { color: var(--accent); border-color: var(--accent); }
+  .footer-col h4 { font-size: 14px; color: var(--text-on-dark-secondary); margin-bottom: 16px; font-weight: 500; }
+  .footer-col ul li { margin-bottom: 10px; }
+  .footer-col a { font-size: 14px; color: var(--text-on-dark-secondary); }
+  .footer-col a:hover { color: var(--text-on-dark); }
+  .footer-bottom {
+    border-top: 1px solid var(--border-dark); padding: 24px 0; display: flex; justify-content: space-between;
+    font-size: 13px; color: var(--text-on-dark-secondary); flex-wrap: wrap; gap: 12px; position: relative;
+  }
+  .footer-bottom::before {
+    content: ''; position: absolute; top: -1px; left: 0; height: 2px; width: 0; background: var(--gradient-accent);
+  }
+  .footer-bottom.line-in::before { width: 100%; transition: width 700ms var(--ease); }
+  .footer-legal { display: flex; gap: 20px; }
+  @media (max-width: 860px) { .footer-top { grid-template-columns: 1fr 1fr; } }
+  @media (max-width: 560px) { .footer-top { grid-template-columns: 1fr; } }
+
+  .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0,0,0,0); }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; transition-duration: 0.001ms !important; }
+    html { scroll-behavior: auto; }
+  }
+</style>
+</head>
+<body>
+
+<header class="nav" id="siteNav">
+  <div class="wrap nav-inner">
+    <a href="#top" class="logo"><span class="logo-mark" aria-hidden="true"></span>TechRepubliQ</a>
+    <nav aria-label="Primary">
+      <ul class="nav-links">
+        <li><a href="#services">Services</a></li>
+        <li><a href="#process">Process</a></li>
+        <li><a href="#pricing">Pricing</a></li>
+        <li><a href="#login">Log in</a></li>
+      </ul>
+    </nav>
+    <div class="nav-cta">
+      <a href="#quote" class="btn btn-primary">Get a Quote</a>
+      <button class="nav-toggle" aria-label="Open menu">&#9776;</button>
+    </div>
+  </div>
+</header>
+
+<main id="top">
+
+  <!-- HERO -->
+  <section class="hero">
+    <div class="wrap">
+      <div class="hero-copy">
+        <div class="hero-dots" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
+        <h1>From brief to build, priced before you commit.</h1>
+        <p class="lede">Web, app, and AI automation work, scoped from what you describe and quoted before any code is written. One team carries it from first sketch to a live product.</p>
+        <a href="#quote" class="btn btn-primary">Get a Quote</a>
+      </div>
+      <div class="hero-ring-wrap">
+        <svg id="hero-ring" viewBox="0 0 400 400" fill="none" aria-hidden="true">
+          <defs>
+            <linearGradient id="ringGrad" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0%" stop-color="#FF5C4D"/>
+              <stop offset="100%" stop-color="#8C102E"/>
+            </linearGradient>
+          </defs>
+          <g id="ringGroup">
+            <!-- petals -->
+          </g>
+        </svg>
+      </div>
+    </div>
+  </section>
+
+  <!-- STAT PANEL -->
+  <section class="panel-section">
+    <div class="wrap panel-grid">
+      <div class="panel-hero-card">
+        <h2>Design. Develop. Deploy.</h2>
+        <p>One team carries your project from first sketch to a live, working product, with a scoped price agreed before anything is built.</p>
+      </div>
+      <div class="stat-stack">
+        <div class="stat-card featured">
+          <div class="stat-value"><span data-count="100" data-suffix="%">0%</span></div>
+          <div class="stat-label">Scope confirmed before you pay</div>
+          <div class="stat-badge">Fixed price</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value"><span data-count="24" data-suffix="h">0h</span></div>
+          <div class="stat-label">From brief to your first quote</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value"><span data-count="1">0</span></div>
+          <div class="stat-label">Team, start to finish — no handoffs</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CONNECTIVE LINE -->
+  <div class="connective">
+    <div class="wrap">
+      <p id="connectiveText">
+        <span>As your build partner, we take the guesswork out of pricing software work.</span>
+        <span>You describe the project, we scope and price it, and you approve before anything starts.</span>
+      </p>
+    </div>
+  </div>
+
+  <!-- SERVICES -->
+  <section class="services" id="services">
+    <div class="wrap">
+      <div class="section-head">
+        <h2>What we build</h2>
+        <p>Six services, one intake form. Pick what fits, or describe your project and let the quote engine work out the rest.</p>
+      </div>
+      <div class="service-grid">
+
+        <div class="service-card">
+          <div class="service-icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg></div>
+          <h3>Web Development</h3>
+          <p>Marketing sites and web apps built on a modern stack, from landing page to full platform.</p>
+          <span class="service-link">View service</span>
+        </div>
+
+        <div class="service-card">
+          <div class="service-icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="2" width="10" height="20" rx="2"/><line x1="11" y1="18" x2="13" y2="18"/></svg></div>
+          <h3>App Development</h3>
+          <p>iOS, Android, and cross-platform apps, scoped around what your users actually do.</p>
+          <span class="service-link">View service</span>
+        </div>
+
+        <div class="service-card">
+          <div class="service-icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="13.5" cy="6.5" r=".5"/><circle cx="17.5" cy="10.5" r=".5"/><circle cx="8.5" cy="7.5" r=".5"/><circle cx="6.5" cy="12.5" r=".5"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.9 0 1.5-.7 1.5-1.5 0-.4-.2-.8-.4-1.1-.3-.3-.4-.7-.4-1.1 0-.8.7-1.5 1.5-1.5H16c3.3 0 6-2.7 6-6 0-4.4-4.5-8-10-8z"/></svg></div>
+          <h3>Web &amp; UI Design</h3>
+          <p>Interfaces designed around your product's real flows, not a generic template.</p>
+          <span class="service-link">View service</span>
+        </div>
+
+        <div class="service-card">
+          <div class="service-icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="10" rx="2"/><circle cx="12" cy="5" r="2"/><line x1="12" y1="7" x2="12" y2="11"/><line x1="8" y1="16" x2="8" y2="16"/><line x1="16" y1="16" x2="16" y2="16"/></svg></div>
+          <h3>AI Automation</h3>
+          <p>Custom automations that take repetitive work off your team's plate.</p>
+          <span class="service-link">View service</span>
+        </div>
+
+        <div class="service-card">
+          <div class="service-icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 2v4"/><path d="M15 2v4"/><path d="M9 18v4"/><path d="M15 18v4"/><path d="M2 9h4"/><path d="M2 15h4"/><path d="M18 9h4"/><path d="M18 15h4"/><rect x="6" y="6" width="12" height="12" rx="2"/></svg></div>
+          <h3>AI Integration</h3>
+          <p>Chatbots, agents, and API-connected workflows built into your existing product.</p>
+          <span class="service-link">View service</span>
+        </div>
+
+        <div class="service-card">
+          <div class="service-icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>
+          <h3>Optimization</h3>
+          <p>Speed, SEO, and infrastructure audits that make an existing product faster and cheaper to run.</p>
+          <span class="service-link">View service</span>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- PROCESS -->
+  <section class="process" id="process">
+    <div class="wrap">
+      <div class="section-head">
+        <h2>How a quote becomes a product</h2>
+        <p>Six steps, the same for every project, whatever size.</p>
+      </div>
+      <div class="process-grid">
+        <div class="process-card"><div class="process-num">01</div><h3>Describe your project</h3></div>
+        <div class="process-card"><div class="process-num">02</div><h3>Get an instant quote</h3></div>
+        <div class="process-card"><div class="process-num">03</div><h3>Approve &amp; pay</h3></div>
+        <div class="process-card"><div class="process-num">04</div><h3>We design &amp; build</h3></div>
+        <div class="process-card"><div class="process-num">05</div><h3>Review together</h3></div>
+        <div class="process-card"><div class="process-num">06</div><h3>Launch &amp; handover</h3></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- TRUST -->
+  <section class="trust">
+    <div class="wrap">
+      <div class="section-head">
+        <h2>Why TechRepubliQ</h2>
+        <p>The parts of the model that are different from a typical freelance engagement.</p>
+      </div>
+      <div class="trust-grid">
+        <div class="trust-card">
+          <h3>Priced before you commit</h3>
+          <p>A real scoped price before any work starts. No open-ended hourly billing.</p>
+        </div>
+        <div class="trust-card">
+          <h3>Yours to keep</h3>
+          <p>Full front-end ownership and migration files, available whenever you need them.</p>
+        </div>
+        <div class="trust-card">
+          <h3>One point of contact</h3>
+          <p>You work directly with the person building your product, start to finish.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- BUILT ON -->
+  <div class="built-on">
+    <div class="wrap">
+      <p class="built-on-label">Built on</p>
+      <div class="built-on-row">
+        <span>Stripe</span><span>Paystack</span><span>Cloudflare</span><span>Supabase</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- PRODUCT PREVIEW -->
+  <section class="preview">
+    <div class="wrap">
+      <div class="section-head">
+        <h2>See how a quote becomes a product</h2>
+        <p>Every project starts in the same place: a plain-language scope and a fixed price, before anything is built.</p>
+      </div>
+      <div class="preview-stage">
+        <div class="mock-card back">
+          <div class="mock-label">Order — Web Development</div>
+          <div class="mock-line"></div>
+          <div class="mock-line short"></div>
+          <div class="mock-line"></div>
+          <div class="mock-btn">View invoice</div>
+        </div>
+        <div class="mock-card front">
+          <div class="mock-label">Your quote</div>
+          <div class="mock-price">$4,200</div>
+          <div class="mock-line short"></div>
+          <div class="mock-line"></div>
+          <div class="mock-btn">Proceed to payment</div>
+        </div>
+      </div>
+      <div class="preview-cta">
+        <a href="#pricing" class="btn btn-ghost-dark">See how pricing works</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- CTA -->
+  <section class="cta" id="quote">
+    <div class="wrap cta-grid">
+      <div>
+        <h2>Have a project in mind?</h2>
+        <p class="lede">Tell us what you're building. You'll get a scoped, priced quote back, usually within a day, and you decide from there.</p>
+        <a href="#" class="btn btn-primary">Start Your Quote</a>
+      </div>
+      <div class="cta-graphic" aria-hidden="true">
+        <svg viewBox="0 0 400 240" preserveAspectRatio="xMidYMid slice">
+          <path d="M0,200 C80,140 120,220 200,150 C280,80 320,180 400,120" stroke="url(#ringGrad)" stroke-width="2" fill="none" opacity="0.5"/>
+          <path d="M0,220 C80,170 120,230 200,180 C280,120 320,200 400,150" stroke="#C8102E" stroke-width="1.5" fill="none" opacity="0.3"/>
+        </svg>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer id="login">
+  <div class="wrap">
+    <div class="footer-top">
+      <div class="footer-brand">
+        <a href="#top" class="logo"><span class="logo-mark" aria-hidden="true"></span>TechRepubliQ</a>
+        <p>Web, app, and AI automation work, scoped and priced before anything is built.</p>
+        <div class="footer-social">
+          <a href="#" aria-label="TechRepubliQ on X">𝕏</a>
+          <a href="#" aria-label="TechRepubliQ on LinkedIn">in</a>
+        </div>
+      </div>
+      <div class="footer-col">
+        <h4>Services</h4>
+        <ul>
+          <li><a href="#services">Web Development</a></li>
+          <li><a href="#services">App Development</a></li>
+          <li><a href="#services">AI Automation</a></li>
+          <li><a href="#services">AI Integration</a></li>
+        </ul>
+      </div>
+      <div class="footer-col">
+        <h4>Company</h4>
+        <ul>
+          <li><a href="#process">How it works</a></li>
+          <li><a href="#pricing">Pricing &amp; FAQ</a></li>
+          <li><a href="#login">Log in</a></li>
+        </ul>
+      </div>
+      <div class="footer-col">
+        <h4>Legal</h4>
+        <ul>
+          <li><a href="#">Terms of Service</a></li>
+          <li><a href="#">Privacy Policy</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="footer-bottom" id="footerBottom">
+      <span>© 2026 TechRepubliQ Ltd. All rights reserved.</span>
+      <div class="footer-legal">
+        <a href="#">Terms of Service</a>
+        <a href="#">Privacy Policy</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+<script>
+(function () {
+  var reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var hasGSAP = typeof gsap !== 'undefined';
+  if (hasGSAP) gsap.registerPlugin(ScrollTrigger);
+
+  /* ---- Nav scroll state ---- */
+  var nav = document.getElementById('siteNav');
+  function onScroll() {
+    if (window.scrollY > 80) nav.classList.add('scrolled');
+    else nav.classList.remove('scrolled');
+  }
+  window.addEventListener('scroll', onScroll, { passive: true });
+  onScroll();
+
+  /* ---- Hero ring: build petals ---- */
+  var ringGroup = document.getElementById('ringGroup');
+  var petalCount = 28;
+  var cx = 200, cy = 200, rOuter = 150, rInner = 60;
+  for (var i = 0; i < petalCount; i++) {
+    var angle = (i / petalCount) * Math.PI * 2;
+    var x1 = cx + Math.cos(angle) * rInner;
+    var y1 = cy + Math.sin(angle) * rInner;
+    var x2 = cx + Math.cos(angle) * rOuter;
+    var y2 = cy + Math.sin(angle) * rOuter;
+    var line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    line.setAttribute('x1', x1); line.setAttribute('y1', y1);
+    line.setAttribute('x2', x2); line.setAttribute('y2', y2);
+    line.setAttribute('stroke', 'url(#ringGrad)');
+    line.setAttribute('stroke-width', '10');
+    line.setAttribute('stroke-linecap', 'round');
+    line.setAttribute('opacity', (0.4 + (i % 5) * 0.12).toFixed(2));
+    ringGroup.appendChild(line);
+  }
+  ringGroup.setAttribute('transform-origin', '200px 200px');
+
+  if (!reduced) {
+    if (hasGSAP) {
+      /* ambient rotation */
+      var ambient = gsap.to('#ringGroup', { rotation: 360, transformOrigin: '200px 200px', duration: 40, repeat: -1, ease: 'none' });
+
+      /* scroll-scrubbed acceleration + scale-down on scroll out of hero */
+      gsap.to('#ringGroup', {
+        rotation: '+=220', transformOrigin: '200px 200px',
+        scrollTrigger: { trigger: '.hero', start: 'top top', end: 'bottom top', scrub: 0.6 }
+      });
+      gsap.to('.hero-ring-wrap', {
+        scale: 0.72, opacity: 0.35,
+        scrollTrigger: { trigger: '.hero', start: 'top top', end: 'bottom top', scrub: 0.6 }
+      });
+    }
+  }
+
+  /* ---- Count-up stats ---- */
+  var counters = document.querySelectorAll('[data-count]');
+  function runCounter(el) {
+    var target = parseFloat(el.getAttribute('data-count'));
+    var suffix = el.getAttribute('data-suffix') || '';
+    if (reduced || !hasGSAP) { el.textContent = target + suffix; return; }
+    var obj = { val: 0 };
+    gsap.to(obj, {
+      val: target, duration: 0.9, ease: 'power2.out',
+      onUpdate: function () { el.textContent = Math.round(obj.val) + suffix; }
+    });
+  }
+  var counterObserver = new IntersectionObserver(function (entries) {
+    entries.forEach(function (entry) {
+      if (entry.isIntersecting) { runCounter(entry.target); counterObserver.unobserve(entry.target); }
+    });
+  }, { threshold: 0.6 });
+  counters.forEach(function (c) { counterObserver.observe(c); });
+
+  /* ---- Staggered fade-up for grids (Pattern A) ---- */
+  function staggerIn(selector, staggerMs) {
+    var items = document.querySelectorAll(selector);
+    if (reduced) { items.forEach(function (i) { i.classList.add('in-view'); }); return; }
+    var obs = new IntersectionObserver(function (entries) {
+      entries.forEach(function (entry, idx) {
+        if (entry.isIntersecting) {
+          setTimeout(function () { entry.target.classList.add('in-view'); }, idx * staggerMs);
+          obs.unobserve(entry.target);
+        }
+      });
+    }, { threshold: 0.2 });
+    items.forEach(function (i) { obs.observe(i); });
+  }
+  staggerIn('.service-card', 80);
+  staggerIn('.trust-card', 100);
+
+  /* two-row stagger for process cards: row1 then row2 */
+  (function () {
+    var cards = document.querySelectorAll('.process-card');
+    if (reduced) { cards.forEach(function (c) { c.classList.add('in-view'); }); return; }
+    var obs = new IntersectionObserver(function (entries) {
+      if (entries[0].isIntersecting) {
+        cards.forEach(function (c, i) {
+          var rowDelay = i < 3 ? i * 80 : 230 + (i - 3) * 80;
+          setTimeout(function () { c.classList.add('in-view'); }, rowDelay);
+        });
+        obs.unobserve(entries[0].target);
+      }
+    }, { threshold: 0.15 });
+    if (cards.length) obs.observe(cards[0]);
+  })();
+
+  /* ---- Line-by-line text reveal (Pattern D) ---- */
+  (function () {
+    var lines = document.querySelectorAll('#connectiveText span');
+    if (reduced) { lines.forEach(function (l) { l.classList.add('revealed'); }); return; }
+    var obs = new IntersectionObserver(function (entries) {
+      entries.forEach(function (entry) {
+        if (entry.isIntersecting) entry.target.classList.add('revealed');
+        else entry.target.classList.remove('revealed');
+      });
+    }, { threshold: 0.6 });
+    lines.forEach(function (l) { obs.observe(l); });
+  })();
+
+  /* ---- Footer accent line, once ---- */
+  (function () {
+    var el = document.getElementById('footerBottom');
+    var obs = new IntersectionObserver(function (entries) {
+      if (entries[0].isIntersecting) { el.classList.add('line-in'); obs.disconnect(); }
+    }, { threshold: 0.3 });
+    obs.observe(el);
+  })();
+})();
+</script>
+</body>
+</html>
