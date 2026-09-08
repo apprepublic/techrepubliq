@@ -5,3 +5,13 @@ dist/
 .env
 .env.local
 wrangler.toml.bak
+.next/
+*.tsbuildinfo
+*.txt
+dev-out.txt
+dev-err.txt
+stdout.txt
+stderr.txt
+__pycache__/
+*.pyc
+.next/cache/

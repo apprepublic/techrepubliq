@@ -1,5 +1,0 @@
-   ▲ Next.js 15.1.7
-   - Local:        http://localhost:3111
-   - Network:      http://10.65.87.108:3111
-
- ✓ Starting...
