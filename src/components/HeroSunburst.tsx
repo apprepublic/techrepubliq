@@ -10,30 +10,29 @@ export default function HeroSunburst() {
   useEffect(() => {
     if (!ref.current) return;
 
+    let isMounted = true;
+    let renderer: any = null;
+    let animationFrameId: number;
+    let handleResize: (() => void) | null = null;
     const div = ref.current;
-    const width = div.clientWidth;
-    const height = div.clientHeight;
-
-    // @ts-ignore - Three.js global
-    const THREE: any = require("three");
-    if (!THREE) {
-      errorRef.current = "Failed to load Three.js";
-      return;
-    }
-
-    const { OBJLoader }: any = require("three/examples/jsm/loaders/OBJLoader");
-    const { MTLLoader }: any = require("three/examples/jsm/loaders/MTLLoader");
-
-    if (!OBJLoader || !MTLLoader) {
-      errorRef.current = "Failed to load Three.js loaders";
-      return;
-    }
 
     ;(async () => {
       try {
+        if (typeof window !== "undefined" && typeof process !== "undefined" && !process.emitWarning) {
+          process.emitWarning = () => {};
+        }
+
+        const THREE = await import("three");
+        const { OBJLoader } = await import("three/examples/jsm/loaders/OBJLoader.js");
+        const { MTLLoader } = await import("three/examples/jsm/loaders/MTLLoader.js");
+
+        if (!isMounted || !ref.current) return;
+        const width = div.clientWidth || 300;
+        const height = div.clientHeight || 300;
+
         const scene = new THREE.Scene();
         const camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 1000);
-        const renderer = new THREE.WebGLRenderer({
+        renderer = new THREE.WebGLRenderer({
           antialias: true,
           alpha: true,
         });
@@ -45,21 +44,33 @@ export default function HeroSunburst() {
         const mtlLoader = new MTLLoader();
         mtlLoader.setPath("/assets/");
 
-        const mtl = await new Promise((resolve, reject) => {
-          mtlLoader.load("red_3d_sunburst.mtl", resolve, undefined, reject);
+        const materials: any = await new Promise((resolve, reject) => {
+          mtlLoader.load(
+            "red_3d_sunburst.mtl",
+            (mat) => {
+              mat.preload();
+              resolve(mat);
+            },
+            undefined,
+            reject
+          );
         });
-        if (!mtl) throw new Error("MTL load returned null");
 
-        const objLoader = new OBJLoader(mtl);
+        if (!isMounted) return;
+
+        const objLoader = new OBJLoader();
+        if (materials) {
+          objLoader.setMaterials(materials);
+        }
         objLoader.setPath("/assets/");
 
-        const rawObject = await new Promise((resolve, reject) => {
+        const rawObject: any = await new Promise((resolve, reject) => {
           objLoader.load("red_3d_sunburst.obj", resolve, undefined, reject);
         });
-        if (!rawObject) throw new Error("OBJ load returned null");
 
-        // @ts-ignore - Three.js Group methods
-        const object: any = rawObject;
+        if (!isMounted || !rawObject) return;
+
+        const object = rawObject;
         scene.add(object);
         modelRef.current = object;
 
@@ -77,7 +88,8 @@ export default function HeroSunburst() {
 
         // Animation loop
         const animate = () => {
-          requestAnimationFrame(animate);
+          if (!isMounted) return;
+          animationFrameId = requestAnimationFrame(animate);
           if (modelRef.current) {
             modelRef.current.rotation.y += 0.005;
           }
@@ -86,28 +98,35 @@ export default function HeroSunburst() {
         animate();
 
         // Resize handler
-        const handleResize = () => {
-          const newWidth = div.clientWidth;
-          const newHeight = div.clientHeight;
+        handleResize = () => {
+          if (!div || !renderer) return;
+          const newWidth = div.clientWidth || 300;
+          const newHeight = div.clientHeight || 300;
           camera.aspect = newWidth / newHeight;
           camera.updateProjectionMatrix();
           renderer.setSize(newWidth, newHeight);
         };
         window.addEventListener("resize", handleResize);
-
-        // Cleanup
-        return () => {
-          window.removeEventListener("resize", handleResize);
-          renderer.dispose();
-          div.removeChild(renderer.domElement);
-        };
       } catch (e: any) {
-        errorRef.current = `Initialization error: ${e.message || e}`;
+        if (isMounted) {
+          errorRef.current = `Initialization error: ${e.message || e}`;
+        }
       }
     })();
-  }, [ref]);
 
-  // Show error fallback if something went wrong
+    return () => {
+      isMounted = false;
+      if (animationFrameId) cancelAnimationFrame(animationFrameId);
+      if (handleResize) window.removeEventListener("resize", handleResize);
+      if (renderer) {
+        renderer.dispose();
+        if (renderer.domElement && div.contains(renderer.domElement)) {
+          div.removeChild(renderer.domElement);
+        }
+      }
+    };
+  }, []);
+
   if (errorRef.current) {
     return (
       <div
