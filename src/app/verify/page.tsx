@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { CheckCircle2, XCircle, Loader2 } from "lucide-react";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "https://techrepubliq-api.apprepublic.workers.dev";
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "https://techrepubliq-api.areh4biz.workers.dev";
 
 export default function VerifyPage() {
   const [status, setStatus] = useState<"loading" | "success" | "error">("loading");

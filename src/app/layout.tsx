@@ -31,7 +31,7 @@ export const metadata: Metadata = {
   description:
     "Describe what you need, receive an AI-assisted quote, and get your project delivered. Premium software development and AI automation services.",
   icons: {
-    icon: "/favicon.ico",
+    icon: "/favicon.png",
     apple: "/assets/logo-light.png",
   },
 };

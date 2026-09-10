@@ -69,7 +69,7 @@ export default {
     if (request.method === "OPTIONS") return handleOptions(request);
 
     env.ctx = ctx;
-    return router.handle(request, env).catch((err) => {
+    return router.fetch(request, env).catch((err) => {
       console.error(err);
       return error(500, "Internal server error");
     });
