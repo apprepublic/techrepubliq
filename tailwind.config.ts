@@ -26,9 +26,9 @@ const config: Config = {
         error: "#8C2F1B",
       },
       fontFamily: {
-        display: ["var(--font-inter-tight)", "Inter", "sans-serif"],
-        body: ["var(--font-inter)", "Inter", "sans-serif"],
-        mono: ["var(--font-jetbrains-mono)", "JetBrains Mono", "monospace"],
+        display: ["Inter Tight", "Inter", "system-ui", "sans-serif"],
+        body: ["Inter", "system-ui", "sans-serif"],
+        mono: ["JetBrains Mono", "monospace"],
       },
       borderRadius: {
         sm: "2px",

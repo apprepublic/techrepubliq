@@ -81,6 +81,8 @@
   }
   .nav-links a:hover, .nav-links a.active { color: var(--text-on-dark); }
   .nav-cta { display: flex; align-items: center; gap: 16px; }
+  .nav-login { color: var(--text-on-dark-secondary); font-size: 15px; font-weight: 500; padding: 8px 16px; transition: color 150ms var(--ease); }
+  .nav-login:hover { color: var(--text-on-dark); }
   .nav-toggle { display: none; background: none; border: none; color: var(--text-on-dark); font-size: 22px; }
   @media (max-width: 860px) {
     .nav-links { display: none; }
@@ -263,13 +265,51 @@
     .mock-card.front { transform: translate(30px, 30px) rotate(3deg); }
   }
 
-  .cta { background: var(--bg-light); }
-  .cta-grid { display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 48px; align-items: center; }
+  .cta { position: relative; z-index: 2; background: transparent; }
+  .cta-grid { display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 56px; align-items: start; }
   .cta h2 { margin-bottom: 16px; }
   .cta p.lede { margin-bottom: 32px; }
-  .cta-graphic { height: 240px; border-radius: var(--radius-card); background: var(--surface-light); border: 1px solid var(--border-light); position: relative; overflow: hidden; }
-  .cta-graphic svg { position: absolute; inset: 0; width: 100%; height: 100%; }
-  @media (max-width: 860px) { .cta-grid { grid-template-columns: 1fr; } .cta-graphic { display: none; } }
+  .cta-copy { padding-top: 12px; }
+  .contact-form {
+    background: rgba(255,255,255,0.62); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);
+    border: 1px solid rgba(255,255,255,0.5); border-radius: var(--radius-card);
+    padding: 28px; box-shadow: var(--shadow-card);
+  }
+  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .form-field { display: flex; flex-direction: column; gap: 7px; margin-bottom: 16px; }
+  .form-field label { font-size: 12.5px; font-weight: 600; letter-spacing: 0.02em; color: var(--text-secondary); text-transform: uppercase; }
+  .form-field input, .form-field textarea {
+    width: 100%; padding: 13px 16px; border-radius: 12px; border: 1px solid var(--border-light);
+    background: #fff; color: var(--text-primary); font-size: 15px; font-family: var(--font-body);
+    outline: none; transition: border-color 150ms var(--ease), box-shadow 150ms var(--ease);
+  }
+  .form-field input:focus, .form-field textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-dim); }
+  .form-field textarea { min-height: 110px; resize: vertical; line-height: 1.5; }
+  .form-meta { font-size: 12.5px; color: var(--text-secondary); margin-top: 12px; line-height: 1.5; }
+  @media (max-width: 860px) { .cta-grid { grid-template-columns: 1fr; gap: 32px; } .form-row { grid-template-columns: 1fr; } } }
+
+  .cta { position: relative; z-index: 2; background: transparent; }
+  .cta-grid { display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 56px; align-items: start; }
+  .cta h2 { margin-bottom: 16px; }
+  .cta p.lede { margin-bottom: 32px; }
+  .cta-copy { padding-top: 12px; }
+  .contact-form {
+    background: rgba(255,255,255,0.62); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);
+    border: 1px solid rgba(255,255,255,0.5); border-radius: var(--radius-card);
+    padding: 28px; box-shadow: var(--shadow-card);
+  }
+  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .form-field { display: flex; flex-direction: column; gap: 7px; margin-bottom: 16px; }
+  .form-field label { font-size: 12.5px; font-weight: 600; letter-spacing: 0.02em; color: var(--text-secondary); text-transform: uppercase; }
+  .form-field input, .form-field textarea {
+    width: 100%; padding: 13px 16px; border-radius: 12px; border: 1px solid var(--border-light);
+    background: #fff; color: var(--text-primary); font-size: 15px; font-family: var(--font-body);
+    outline: none; transition: border-color 150ms var(--ease), box-shadow 150ms var(--ease);
+  }
+  .form-field input:focus, .form-field textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-dim); }
+  .form-field textarea { min-height: 110px; resize: vertical; line-height: 1.5; }
+  .form-meta { font-size: 12.5px; color: var(--text-secondary); margin-top: 12px; line-height: 1.5; }
+  @media (max-width: 860px) { .cta-grid { grid-template-columns: 1fr; gap: 32px; } .form-row { grid-template-columns: 1fr; } }
 
   footer { background: var(--bg-dark); color: var(--text-on-dark); padding: 80px 0 0; }
   .footer-top { display: grid; grid-template-columns: 1.3fr 0.8fr 0.8fr 0.8fr 1.1fr; gap: 32px; padding-bottom: 56px; }
@@ -304,18 +344,11 @@
   @media (max-width: 420px) { .footer-top { grid-template-columns: 1fr; } }
 
   .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0,0,0,0); }
-
-  .preview-note {
-    background: var(--accent); color: #fff; font-size: 13px; text-align: center; padding: 8px 16px;
-    position: relative; z-index: 200;
-  }
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/OBJLoader.js"></script>
 </head>
 <body>
-
-<div class="preview-note">Static preview — the two 3D canvases (hero ring &amp; product preview) are rendered here as CSS/SVG stand-ins.</div>
 
 <header class="nav" id="siteNav">
   <div class="wrap nav-inner">
@@ -331,7 +364,8 @@
       </ul>
     </nav>
     <div class="nav-cta">
-      <a href="#quote" class="btn btn-primary">Get a Quote</a>
+      <a href="/login" class="nav-login">Log in</a>
+      <a href="#quote" class="btn btn-primary">Get started</a>
       <button class="nav-toggle" aria-label="Open menu">&#9776;</button>
     </div>
   </div>
@@ -344,8 +378,8 @@
       <div class="hero-copy">
         <div class="hero-dots" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
         <h1>Building tomorrow's software, <span class="accent-text">today.</span></h1>
-        <p class="lede">Web, app, and AI automation work — designed, engineered, and shipped by one team who carries it from first sketch to a live, working product.</p>
-        <a href="#quote" class="btn btn-primary">Get a Quote</a>
+        <p class="lede">Designe, engineer, and ship from first sketch to a live, working product.</p>
+        <a href="#quote" class="btn btn-primary">Get started</a>
       </div>
       <div class="hero-ring-wrap">
         <div id="ring3d"></div>
@@ -481,23 +515,43 @@
   <!-- CTA -->
   <section class="cta" id="quote">
     <div class="wrap cta-grid">
-      <div>
+      <div class="cta-copy">
+        <span class="eyebrow">Contact</span>
         <h2>Connect with us</h2>
         <p class="lede">Having helped clients across industries build, launch, and scale their software, we'd love to do the same for you. Tell us what you're building and let's talk it through.</p>
-        <a href="#quote" class="btn btn-primary">Get a Quote</a>
+        <div style="margin-top: 24px; display: flex; flex-direction: column; gap: 12px;">
+          <div style="display: flex; align-items: center; gap: 10px; color: var(--text-secondary); font-size: 14px;">
+            <span style="width: 32px; height: 32px; border-radius: 50%; background: var(--accent-dim); display: flex; align-items: center; justify-content: center; font-size: 14px;">✉</span>
+            hello@techrepubliq.com
+          </div>
+          <div style="display: flex; align-items: center; gap: 10px; color: var(--text-secondary); font-size: 14px;">
+            <span style="width: 32px; height: 32px; border-radius: 50%; background: var(--accent-dim); display: flex; align-items: center; justify-content: center; font-size: 14px;">◍</span>
+            Remote-first, working with teams worldwide
+          </div>
+        </div>
       </div>
-      <div class="cta-graphic" aria-hidden="true">
-        <svg viewBox="0 0 400 240" preserveAspectRatio="xMidYMid meet">
-          <defs>
-            <linearGradient id="ringGrad2" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stop-color="#FF5C4D"/>
-              <stop offset="100%" stop-color="#C8102E"/>
-            </linearGradient>
-          </defs>
-          <circle cx="200" cy="120" r="70" fill="none" stroke="url(#ringGrad2)" stroke-width="14" stroke-dasharray="6 10" opacity="0.85" />
-          <circle cx="200" cy="120" r="95" fill="none" stroke="#C8102E" stroke-width="1" opacity="0.25" />
-        </svg>
-      </div>
+      <form class="contact-form" id="contactForm" onsubmit="return handleContactSubmit(event)">
+        <div class="form-row">
+          <div class="form-field">
+            <label for="c-name">Name</label>
+            <input id="c-name" name="name" type="text" placeholder="Jane Doe" required />
+          </div>
+          <div class="form-field">
+            <label for="c-email">Email</label>
+            <input id="c-email" name="email" type="email" placeholder="jane@company.com" required />
+          </div>
+        </div>
+        <div class="form-field">
+          <label for="c-company">Company</label>
+          <input id="c-company" name="company" type="text" placeholder="Your company (optional)" />
+        </div>
+        <div class="form-field">
+          <label for="c-message">Message</label>
+          <textarea id="c-message" name="message" placeholder="Tell us what you're building..." required></textarea>
+        </div>
+        <button type="submit" class="btn btn-primary" style="width: 100%; justify-content: center;">Send Message</button>
+        <p class="form-meta">We reply within 24 hours. No spam, just a quick conversation about your project.</p>
+      </form>
     </div>
   </section>
 </main>
@@ -1117,6 +1171,26 @@ f 188 185 189 192
     }, { threshold: 0.15 });
     obs.observe(processCards[0]);
   }
+
+  
+  function handleContactSubmit(e) {
+    e.preventDefault();
+    const form = e.target;
+    const btn = form.querySelector('button[type="submit"]');
+    const orig = btn.textContent;
+    btn.textContent = 'Sending...';
+    btn.disabled = true;
+    setTimeout(() => {
+      btn.textContent = 'Sent \u2713';
+      setTimeout(() => {
+        btn.textContent = orig;
+        btn.disabled = false;
+        form.reset();
+      }, 1200);
+    }, 600);
+    return false;
+  }
+
 
   // Footer accent line
   const footerEl = document.getElementById('footerBottom');

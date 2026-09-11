@@ -1,30 +1,9 @@
-import { Inter, Inter_Tight, JetBrains_Mono } from "next/font/google";
 import { MotionProvider } from "@/components/MotionProvider";
+import { ThemeProvider } from "@/components/ThemeProvider";
 import { Nav } from "@/components/Nav";
 import { Footer } from "@/components/Footer";
 import type { Metadata } from "next";
 import "./globals.css";
-
-const inter = Inter({
-  subsets: ["latin"],
-  variable: "--font-inter",
-  weight: ["400", "500"],
-  display: "swap",
-});
-
-const interTight = Inter_Tight({
-  subsets: ["latin"],
-  variable: "--font-inter-tight",
-  weight: ["600", "700"],
-  display: "swap",
-});
-
-const jetbrainsMono = JetBrains_Mono({
-  subsets: ["latin"],
-  variable: "--font-jetbrains-mono",
-  weight: ["500"],
-  display: "swap",
-});
 
 export const metadata: Metadata = {
   title: "TechRepubliQ — Software Development & AI Automation Agency",
@@ -42,15 +21,32 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
-      <body
-        className={`${inter.variable} ${interTight.variable} ${jetbrainsMono.variable} font-body bg-paper text-ink antialiased`}
-      >
-        <MotionProvider>
-          <Nav />
-          <main className="min-h-screen pt-20">{children}</main>
-          <Footer />
-        </MotionProvider>
+    <html lang="en" suppressHydrationWarning>
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              (function() {
+                try {
+                  const saved = localStorage.getItem('techrepubliq-theme');
+                  const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+                  const theme = saved || (prefersDark ? 'dark' : 'light');
+                  document.documentElement.setAttribute('data-theme', theme);
+                  document.documentElement.classList.add(theme);
+                } catch(e) {}
+              })();
+            `,
+          }}
+        />
+      </head>
+      <body className="font-body antialiased" suppressHydrationWarning>
+        <ThemeProvider>
+          <MotionProvider>
+            <Nav />
+            <main className="min-h-screen pt-20">{children}</main>
+            <Footer />
+          </MotionProvider>
+        </ThemeProvider>
       </body>
     </html>
   );
