@@ -8,10 +8,10 @@ import { useTheme } from "./ThemeProvider";
 
 const links = [
   { label: "Home", href: "/" },
-  { label: "About", href: "/about" },
   { label: "Services", href: "/#services" },
+  { label: "Pricing", href: "/#tiers" },
   { label: "Work", href: "/#preview" },
-  { label: "Blog", href: "/#testimonials" },
+  { label: "About", href: "/about" },
   { label: "Contact", href: "/#quote" },
 ];
 
