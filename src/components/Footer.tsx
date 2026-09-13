@@ -66,7 +66,7 @@ export function Footer() {
             <ul className="list-none m-0 p-0 space-y-2.5">
               <li><Link href="/#process" className="text-sm no-underline transition-colors duration-150 text-[#9C99AC] hover:text-[#F7F6FA]">How it works</Link></li>
               <li><Link href="/terms" className="text-sm no-underline transition-colors duration-150 text-[#9C99AC] hover:text-[#F7F6FA]">Terms &amp; Conditions</Link></li>
-              <li><Link href="/pricing" className="text-sm no-underline transition-colors duration-150 text-[#9C99AC] hover:text-[#F7F6FA]">Privacy Policy</Link></li>
+              <li><Link href="/terms" className="text-sm no-underline transition-colors duration-150 text-[#9C99AC] hover:text-[#F7F6FA]">Privacy Policy</Link></li>
             </ul>
           </div>
 
