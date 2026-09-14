@@ -1,0 +1,210 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   THEME LAYERS for the landing page — hand-authored, appended after the
+   generated base by scripts/scope-landing-css.py.
+
+   The v7 document only ever defined ONE appearance: a light page body with a
+   dark hero and dark "glass" cards. Both modes below are therefore overrides.
+   The palettes come from the theme CSS this page used to inject into its iframe
+   (src/app/page.tsx before the port), so light/dark keep matching the rest of the
+   site instead of being re-derived. Three deliberate departures from that CSS:
+
+   1. Light mode KEEPS the hero backdrop image and the 3D OBJ ring. The old
+      light branch threw both away and painted flat radial gradients instead —
+      the image and the object are the design, so they stay, softened by a
+      light wash so dark text reads on top of them.
+   2. The mobile hero rule (CTA visible before scrolling) applies in BOTH modes;
+      it was theme-conditional before but byte-identical in each branch.
+   3. Offsets are measured against this layout, not the iframe's: `main` already
+      reserves 80px for the fixed nav via `pt-20`, so the `calc(… + 68px)` nav
+      allowances the injected CSS added are not repeated here.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ---- Mobile hero: fit the screen so the CTA is visible before scrolling ------ */
+@media (max-width: 860px) {
+.v7 .hero {
+    min-height: calc(100vh - 80px);
+    min-height: calc(100dvh - 80px);
+    display: flex;
+    align-items: center;
+    padding-top: 120px;
+    padding-bottom: 32px;
+}
+.v7 .hero .wrap { width: 100%; }
+.v7 #ring3d { width: 100%; max-width: 440px; }
+}
+
+/* ─────────────────────────────  LIGHT  ─────────────────────────────
+   Light page, light glass cards, dark text; the hero keeps its image with a
+   light wash. `--text-on-dark` is NOT redefined: the hero and footer are still
+   dark surfaces in this mode and their text has to stay light. */
+html[data-theme="light"] .v7 {
+  --bg-light: #F6F5F9;
+  --surface-light: #FFFFFF;
+  --text-primary: #14121F;
+  --text-secondary: #6B6876;
+  --border-light: #E8E6F0;
+  --accent-dim: #FBE2E4;
+  --shadow-card: 0 1px 2px rgba(20,18,31,0.04), 0 8px 24px rgba(20,18,31,0.06);
+}
+
+html[data-theme="light"] .v7 .hero {
+  background: #F6F5F9;
+  background-image:
+    radial-gradient(ellipse at 20% 20%, rgba(200,16,46,0.06), transparent 50%),
+    radial-gradient(ellipse at 80% 80%, rgba(255,92,77,0.05), transparent 55%);
+  color: #14121F;
+}
+html[data-theme="light"] .v7 .hero::before {
+  opacity: 0.55;
+  background:
+    linear-gradient(90deg, rgba(246,245,249,0.94) 0%, rgba(246,245,249,0.72) 45%, rgba(246,245,249,0.34) 100%),
+    url('/assets/hero-sunburst.png') center center / cover no-repeat, #F6F5F9;
+  filter: blur(18px);
+  -webkit-filter: blur(18px);
+  transform: scale(1.08);
+}
+html[data-theme="light"] .v7 .hero h1 { color: #14121F; }
+html[data-theme="light"] .v7 .hero p.lede { color: #6B6876; }
+html[data-theme="light"] .v7 .hero .accent-text { color: #C8102E; }
+html[data-theme="light"] .v7 .hero .btn-ghost-dark { color: #14121F; border-color: #E8E6F0; }
+/* a dark-red object on a light page needs air behind it */
+html[data-theme="light"] .v7 #ring3d {
+  background: radial-gradient(circle at 50% 50%, rgba(200,16,46,0.10), transparent 68%);
+}
+
+/* the dark glass cards become light glass */
+html[data-theme="light"] .v7 .panel-section { color: #14121F; }
+html[data-theme="light"] .v7 .info-box,
+html[data-theme="light"] .v7 .stat-card,
+html[data-theme="light"] .v7 .process-card,
+html[data-theme="light"] .v7 .mock-card,
+html[data-theme="light"] .v7 .contact-form {
+  background: rgba(255,255,255,0.85);
+  border: 1px solid rgba(255,255,255,0.8);
+  box-shadow: 0 4px 16px rgba(20,18,31,0.06);
+  color: #14121F;
+}
+html[data-theme="light"] .v7 .info-box h3,
+html[data-theme="light"] .v7 .stat-value,
+html[data-theme="light"] .v7 .process-card h3,
+html[data-theme="light"] .v7 .mock-price { color: #14121F; }
+html[data-theme="light"] .v7 .info-box p,
+html[data-theme="light"] .v7 .stat-label,
+html[data-theme="light"] .v7 .mock-label { color: #6B6876; }
+html[data-theme="light"] .v7 .info-icons span { background: rgba(200,16,46,0.08); }
+html[data-theme="light"] .v7 .info-icons svg { stroke: #C8102E; }
+html[data-theme="light"] .v7 .stat-card.featured {
+  background: linear-gradient(135deg, #FF5C4D 0%, #C8102E 100%);
+  border-color: transparent;
+}
+html[data-theme="light"] .v7 .stat-card.featured .stat-value { color: #fff; }
+html[data-theme="light"] .v7 .stat-card.featured .stat-label { color: rgba(255,255,255,0.9); }
+html[data-theme="light"] .v7 .stat-cta { background: #14121F; color: #fff; }
+html[data-theme="light"] .v7 .mock-line { background: #E8E6F0; }
+
+html[data-theme="light"] .v7 .services,
+html[data-theme="light"] .v7 .process,
+html[data-theme="light"] .v7 .testimonials,
+html[data-theme="light"] .v7 .preview,
+html[data-theme="light"] .v7 .cta { background: transparent; }
+html[data-theme="light"] .v7 .process,
+html[data-theme="light"] .v7 .preview { color: #14121F; }
+html[data-theme="light"] .v7 .section-head h2,
+html[data-theme="light"] .v7 .cta h2,
+html[data-theme="light"] .v7 .service-card h3,
+html[data-theme="light"] .v7 .testimonial-card p.quote,
+html[data-theme="light"] .v7 .testimonial-name { color: #14121F; }
+html[data-theme="light"] .v7 .section-head p,
+html[data-theme="light"] .v7 .cta p.lede,
+html[data-theme="light"] .v7 .service-card p,
+html[data-theme="light"] .v7 .testimonial-role,
+html[data-theme="light"] .v7 .form-meta { color: #6B6876; }
+html[data-theme="light"] .v7 .eyebrow { background: #FBE2E4; color: #C8102E; }
+html[data-theme="light"] .v7 .service-icon { background: #FBE2E4; }
+html[data-theme="light"] .v7 .service-icon svg { stroke: #C8102E; }
+html[data-theme="light"] .v7 .service-link { color: #C8102E; }
+html[data-theme="light"] .v7 .process-num { color: #C8102E; }
+html[data-theme="light"] .v7 .testimonial-quote-mark { background: #FBE2E4; color: #C8102E; }
+html[data-theme="light"] .v7 .form-field label { color: #6B6876; }
+html[data-theme="light"] .v7 .form-field input,
+html[data-theme="light"] .v7 .form-field textarea { background: #fff; border-color: #E8E6F0; color: #14121F; }
+html[data-theme="light"] .v7 .cta .btn-ghost-light,
+html[data-theme="light"] .v7 .preview .btn-ghost-light { color: #14121F; border-color: #E8E6F0; }
+
+/* ─────────────────────────────  DARK  ─────────────────────────────
+   The surfaces the file already ships (dark hero, dark glass cards), extended to
+   the page body and to the light-glass cards below the fold. */
+html[data-theme="dark"] .v7 {
+  --bg-light: #0A0912;
+  --bg-dark: #0A0912;
+  --surface-light: #141220;
+  --text-primary: #F7F6FA;
+  --text-secondary: #9C99AC;
+  --border-light: #242233;
+  --accent-dim: rgba(200,16,46,0.15);
+  --shadow-card: 0 8px 32px rgba(0,0,0,0.3);
+}
+html[data-theme="dark"] .v7 .services,
+html[data-theme="dark"] .v7 .testimonials,
+html[data-theme="dark"] .v7 .cta,
+html[data-theme="dark"] .v7 .panel-section,
+html[data-theme="dark"] .v7 .process,
+html[data-theme="dark"] .v7 .preview { background: transparent; }
+html[data-theme="dark"] .v7 .panel-section,
+html[data-theme="dark"] .v7 .process,
+html[data-theme="dark"] .v7 .preview { color: #F7F6FA; }
+html[data-theme="dark"] .v7 .info-box,
+html[data-theme="dark"] .v7 .stat-card,
+html[data-theme="dark"] .v7 .process-card,
+html[data-theme="dark"] .v7 .service-card,
+html[data-theme="dark"] .v7 .testimonial-card,
+html[data-theme="dark"] .v7 .contact-form {
+  background: rgba(26,24,40,0.8);
+  border: 1px solid rgba(255,255,255,0.08);
+}
+html[data-theme="dark"] .v7 .mock-card { background: rgba(26,24,40,0.9); border: 1px solid rgba(255,255,255,0.1); }
+html[data-theme="dark"] .v7 .info-box h3,
+html[data-theme="dark"] .v7 .stat-value,
+html[data-theme="dark"] .v7 .process-card h3,
+html[data-theme="dark"] .v7 .service-card h3,
+html[data-theme="dark"] .v7 .testimonial-name,
+html[data-theme="dark"] .v7 .testimonial-card p.quote,
+html[data-theme="dark"] .v7 .section-head h2,
+html[data-theme="dark"] .v7 .cta h2,
+html[data-theme="dark"] .v7 .mock-price,
+html[data-theme="dark"] .v7 .hero h1 { color: #F7F6FA; }
+html[data-theme="dark"] .v7 .info-box p,
+html[data-theme="dark"] .v7 .stat-label,
+html[data-theme="dark"] .v7 .process-card p,
+html[data-theme="dark"] .v7 .service-card p,
+html[data-theme="dark"] .v7 .testimonial-role,
+html[data-theme="dark"] .v7 .section-head p,
+html[data-theme="dark"] .v7 .cta p.lede,
+html[data-theme="dark"] .v7 .mock-label,
+html[data-theme="dark"] .v7 .form-meta,
+html[data-theme="dark"] .v7 .hero p.lede { color: #9C99AC; }
+html[data-theme="dark"] .v7 .info-icons svg { stroke: #FF8A80; }
+html[data-theme="dark"] .v7 .service-icon svg { stroke: #FF8A80; }
+html[data-theme="dark"] .v7 .service-link { color: #FF8A80; }
+html[data-theme="dark"] .v7 .stat-card.featured {
+  background: linear-gradient(135deg, #FF5C4D 0%, #C8102E 100%);
+  border-color: transparent;
+}
+html[data-theme="dark"] .v7 .stat-card.featured .stat-value { color: #fff; }
+html[data-theme="dark"] .v7 .stat-card.featured .stat-label { color: rgba(255,255,255,0.85); }
+html[data-theme="dark"] .v7 .stat-cta { background: rgba(255,255,255,0.92); color: #C8102E; }
+html[data-theme="dark"] .v7 .eyebrow { color: #FF8A80; background: rgba(200,16,46,0.12); }
+html[data-theme="dark"] .v7 .process-num { color: rgba(255,255,255,0.5); }
+html[data-theme="dark"] .v7 .mock-line { background: #242233; }
+html[data-theme="dark"] .v7 .hero .btn-ghost-dark,
+html[data-theme="dark"] .v7 .cta .btn-ghost-light,
+html[data-theme="dark"] .v7 .preview .btn-ghost-light { color: #F7F6FA; border-color: #242233; }
+html[data-theme="dark"] .v7 .form-field label { color: #9C99AC; }
+html[data-theme="dark"] .v7 .form-field input,
+html[data-theme="dark"] .v7 .form-field textarea {
+  background: rgba(10,9,18,0.6);
+  border-color: #242233;
+  color: #F7F6FA;
+}
+html[data-theme="dark"] .v7 .form-field input::placeholder,
+html[data-theme="dark"] .v7 .form-field textarea::placeholder { color: #6B6876; }
