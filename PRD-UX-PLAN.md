@@ -194,7 +194,8 @@ Rewrite `src/app/quote/page.tsx` (keep `DimensionLine`, motion curve, `localStor
 
 See §10 (architecture) and §11 (installments). Summary of edits:
 - `workers/api/src/routes/payments.ts` — replace geo-only provider pick with a `PaymentProvider` interface + `resolveProvider(country, currency)`; recompute amount server-side; return NGN amount converted server-side.
-- **Fix the FX hack:** `src/app/checkout/page.tsx` renders `₦{amount * 1500}` from a client-side constant. Money must be computed once, in USD cents, and converted with a **server-supplied rate** (`fx_rates` table or an FX API) — never a hardcoded 1500.
+- **Fix the FX hack:** `src/app/checkout/page.tsx` renders `₦{amount * 1500}` from a client-side constant. Money is computed once, in **USD cents**, and converted with a server-supplied rate — never a hardcoded 1500.
+- **FX cron (decision 10):** a Cron Worker pulls USD→NGN once a day (≈06:00 UTC) from an FX API and upserts `fx_rates(base, quote, rate, fetched_at)`. Checkout reads the newest row, **locks it onto the payment intent** (`fx_rate_used`) so invoices reconcile later, and displays *"converted at ₦X = $1 (rate as of <date>)"*. If the fetch fails we keep the last known rate; if it is older than 48h the cron alerts `admin@techrepubliq.com` and the UI shows a "rate may be stale" note. Provider choice is made at implementation time — anything with a USD→NGN endpoint works, the point is that it is never hardcoded.
 - New `Env` secrets: `PAYPAL_CLIENT_ID`, `PAYPAL_CLIENT_SECRET`, `CF_API_TOKEN`, `CF_ACCOUNT_TAG`; keep `PAYSTACK_SECRET_KEY`, `STRIPE_SECRET_KEY`, `SEND_EMAIL`, `FROM_EMAIL`.
 - New webhook `POST /api/webhooks/paypal` alongside the existing Paystack/Stripe ones; verify signatures (the Stripe one is currently a TODO at `payments.ts:90`).
 - Invoices: reuse `sendInvoiceEmail` — unpaid on intent creation, paid on webhook success; store `invoice_url`.
@@ -262,6 +263,12 @@ See §10 (architecture) and §11 (installments). Summary of edits:
 | 7 | **Leave historical data; start fresh** | New `0004_projects.sql` tables; old `orders`/`quotes` remain readable; dashboard keeps a "Past orders" view (§15) |
 | 8 | **Per-project Email Center is deliverable now** | Email tab ships for real (inbox/sent/compose on the project's domain address) (§13) |
 | 9 | **Analytics from Cloudflare** (all sites deployed/managed there) | Analytics tab reads Cloudflare GraphQL only — designed against what Cloudflare actually exposes (§12) |
+| 10 | **FX: an API on a cron** (not an admin-set rate) | Cron Worker pulls USD→NGN into `fx_rates`; checkout locks the rate it used (§10) |
+| 11 | **Installments = 12 even monthly payments** | Fee split into 12 equal monthly payments, first taken at checkout (§11) |
+| 12 | **One Cloudflare plan for every hosted project zone** | Standardised zone plan + one retention window for all customers (§12.5) |
+| 13 | **No Web Analytics/RUM snippet in v1** | Zone HTTP analytics covers everything the PRD asks for; no JS injected into customer sites (§12.6) |
+| 14 | **Contact Sales → admin@techrepubliq.com** | Lead form posts to `contact_sales_leads` and mails the full submission to that inbox (§14) |
+| 15 | **Tier limits measured in requests/day** | Ladder 10k / 100k / 1M requests per day; nudge only, never enforce (§12.7) |
 
 ---
 
@@ -299,7 +306,9 @@ workers/api/src/payments/resolve.ts  resolveProvider(country, currency)
 
 **Model:** the fee is a debt schedule, not a subscription.
 - `installment_plans(project_id, total_cents, currency, count, interval, started_at, status)`; `installments(id, plan_id, seq, due_at, amount_cents, status ∈ {Scheduled, Paid, Due, Grace, Failed}, attempts, paid_at)`.
-- Checkout offers **1 / 2 / 3** payments (monthly). Splitting rule: `base = floor(total / n)`, last installment absorbs the remainder. Cadence markup (§4.7) applies to the annual/monthly *service* figure, not the dev fee.
+- **Decision 11 — twelve even monthly payments.** The one-time development fee splits into **12 equal monthly payments**; payment 1 is taken at checkout, the remaining 11 on monthly anniversaries. Splitting rule in integer cents: `base = floor(totalCents / 12)`, and the first `totalCents − 12 × base` payments get **+1 cent** so the twelve sum to the fee exactly.
+- **No markup on the fee itself.** The 15% swing in §4.7 applies to the *recurring service* figure (annual vs monthly), not to the development-fee installments — so this is interest-free financing over 12 months. Worth confirming commercially: it carries a real cost, and a deposit (e.g. 2 payments up front) is the usual alternative.
+- Cadence selector (annual/monthly +15%) stays on the **services** part of the order summary, clearly separated from the fee schedule.
 - First installment is charged at checkout through the customer's rail; the rest are charged from the **saved method** on due dates by a **Cron Worker** (`chargeSaved`).
 - **Grace:** on failure → status `Grace`, service continues 7 days, reminder emails on days 1/3/5/7 (PRD §4.5), then dunning: the affected **add-on services** are removed — the project itself is never deleted mid-build.
 - **No refunds:** the UI must say plainly that installments are a commitment to pay the full fee; cancelling is not an option once paid (§6).
@@ -336,7 +345,7 @@ workers/api/src/payments/resolve.ts  resolveProvider(country, currency)
 
 ### 12.3 Architecture
 
-- `projects.zone_id` (+ `rum_site_tag`) set at Launch; a single `CF_API_TOKEN` in Worker secrets; **Cloudflare is only ever called from the Worker**, never the browser.
+- `projects.zone_id` (and `rum_site_tag`, unused in v1) set at Launch; a single `CF_API_TOKEN` in Worker secrets; **Cloudflare is only ever called from the Worker**, never the browser.
 - `GET /api/projects/:id/analytics?range=7d|30d` → builds the GraphQL query, reads `settings.notOlderThan` for that zone (cached daily), returns normalized JSON.
 - **Caching:** KV (15 min) for live tiles; **Cron Worker** nightly writes the previous day into `analytics_daily` → history beyond Cloudflare retention, at zero query cost per dashboard view.
 - Cap zones per cron run and rely on account-based rate limiting; 429 → exponential backoff, serve last-known rollup.
@@ -353,18 +362,69 @@ workers/api/src/payments/resolve.ts  resolveProvider(country, currency)
 | Traffic over time | `httpRequests1dGroups` by `date` | line/area, 7/30-day presets |
 | Top countries | `countryMap` / `clientCountryName` | bars |
 | Response status mix | `responseStatusMap` | donut |
-| Browsers | `browserMap` (or RUM `userAgentBrowser`) | list |
-| Devices | RUM `deviceType` | list |
-| Top pages | RUM `requestPath` + `count` | list |
-| Referrers | RUM `refererHost` | list |
-| Core Web Vitals | `rumPerformanceEventsAdaptiveGroups` | confirm field names first |
+| Browsers | `browserMap` | list — verify against the zone's `availableFields` |
 | "Estimated" chip | `avg.sampleInterval > 1` | honesty about sampling |
 
-**Deliberately NOT shown** (Cloudflare doesn't provide them): bounce rate, session/visit duration, UTM/campaign attribution, goal/funnel conversion, real-time live visitors [13](https://markosaric.com/cloudflare-analytics-review/). Options: omit in v1, or add later with **Workers Analytics Engine** custom events (recommended v2 — also the cleanest way to get product events like "Get Priced clicked").
+**v1 ships only the rows above.** These are RUM-dependent and therefore deferred to v2 (§12.6): top pages, referrers, device split, Core Web Vitals. They are dropped, not faked.
+
+**Deliberately NOT shown** (Cloudflare doesn't provide them): bounce rate, session/visit duration, UTM/campaign attribution, goal/funnel conversion, real-time live visitors [13](https://markosaric.com/cloudflare-analytics-review/). If we ever want them, the route is **Workers Analytics Engine** custom events — also the cleanest way to get product events like "Get Priced clicked".
 
 **Link to PRD §4.3/§4.5:** `analytics_daily` (requests + bandwidth) drives the tier-limit monitor → in-dashboard banner *"You're nearing your tier's limit — upgrade"* (upgrade-only), and the intake metrics collected at quote time become the baseline those thresholds are measured against.
 
 **Mobile projects** have no zone: the Analytics tab instead shows build status, UI/UX preview, APK download and store-deployment state.
+
+### 12.5 Which Cloudflare plan each project zone sits on (decision 12)
+
+**What a zone is:** every hosted project ends up as a domain or subdomain on Cloudflare. A *zone* is one registered domain (with its subdomains) — so `client.com` is a zone and `preview.client.com` rides on it for free. One customer project on its own domain = one zone. **The plan is bought per zone, not per account**, and it is the plan that decides how much history we can query.
+
+**Official traffic-analytics retention by plan** [14](https://developers.cloudflare.com/plans/):
+
+| Plan | Traffic analytics retention | Cache analytics retention | Rough list price |
+|---|---|---|---|
+| Free | **30 days** | not available | $0 |
+| Pro | **7 days** | 7 days | ≈$20–25 / zone / month |
+| Business | **30 days** | 30 days | ≈$200–250 / zone / month |
+| Enterprise | **30 days** | 30 days | custom |
+
+Note the trap: **Pro keeps less traffic history (7 days) than Free (30 days)**. If we put a paying customer's project on Pro because it "sounds like the paid tier", their Analytics tab would show a *shorter* window than a free site's.
+
+**Why it matters to us**
+1. **How far back a customer can look.** Whatever the plan, that is the ceiling for any live query; our own roll-up is the only thing that extends it.
+2. **Cost scales with project count.** 25 projects on Business ≈ $5–6k/month at list. That is a real per-customer unit cost and needs to sit inside the tier pricing.
+3. **Consistency.** If zones sit on different plans, every customer's dashboard has a different "how far back" and we inherit the support burden of explaining it.
+
+**Recommendation — standardise, and do not use Pro**
+- **Standardise one plan for all hosted project zones** so retention, features and the UI's date presets are identical everywhere (decision 12).
+- **Business is the safe default** for hosting paying customers: 30-day traffic + cache retention, custom certificates, 100% uptime SLA, stronger WAF.
+- **If the per-zone cost is too steep, use Cloudflare for SaaS (custom hostnames)** rather than Free zones: many customer domains then ride on **one** parent Business zone, which is both cheaper at scale *and* gives a single consistent retention window. Preview subdomains (`*.techrepubliq.com`) already inherit our main zone for free.
+- **Avoid Pro** — strictly worse retention than Free, for money.
+- **Enterprise only** when we need Logpush-scale log export or contractual terms.
+
+**What makes this decision low-risk:** the nightly roll-up into `analytics_daily` means our dashboards own the long-term history regardless of plan. Cloudflare retention only bounds (a) backfilling a project before roll-ups begin and (b) the live-query fallback if a roll-up fails. So pick the plan on commercial/feature grounds, and let the UI keep reading `settings.notOlderThan` per zone at runtime (§12.3) instead of hardcoding any window.
+
+### 12.6 No Web Analytics snippet in v1 (decision 13)
+
+PRD §9.3 asks for **traffic analytics feeding quota monitoring** — that is exactly `sum.requests` / `uniq.uniques` / `sum.bytes` from zone-level HTTP analytics, which needs **no JavaScript on the customer's site**. Adding the RUM/Web Analytics beacon would buy top pages, referrers, device split and Core Web Vitals, but it means injecting a script into every site we ship, and on low-traffic sites its numbers come back sampled 1-in-10 [12](https://dev.to/robertcasschdot/your-cloudflare-analytics-are-rounded-to-the-nearest-10-and-the-api-will-tell-you-so-10nn). It is also one more third-party surface on a customer property, which sits badly with the confidentiality posture in §7.
+
+**Decision:** v1 ships **zone analytics only** — no snippet, no beacon. Consequence: the v1 Analytics tab shows requests, unique visitors, bandwidth, cache ratio, timeseries, top countries, status mix and (where the zone's `availableFields` permit) browsers — and **omits** top pages, referrers and Core Web Vitals. Revisit as an **opt-in per project** in v2; the tab is built so those three tiles can be added later without restructuring.
+
+### 12.7 Tier limits and the upgrade nudge (decision 15)
+
+Metric: **requests/day**, read from `sum.requests` in `httpRequests1dGroups` (the same feed as §12.4), using a **7-day trailing average** so one launch-day spike does not trigger a nudge.
+
+| Tier | Requests/day ceiling | ≈ per month | Bandwidth shown (informational only) |
+|---|---|---|---|
+| **MVP** | 10,000 | ~300k | 150 GB |
+| **Startup** | 100,000 | ~3M | 1.5 TB |
+| **Business** | 1,000,000 | ~30M | 15 TB |
+| **Enterprise** | no published cap | negotiated | negotiated |
+
+Rules
+- **Nudge, never enforce.** ≥80% of the ceiling for 3 consecutive days → dashboard banner + email; ≥100% for 3 consecutive days → persistent banner + weekly email. Nothing is throttled or removed: PRD §4.3 says *suggest* an upgrade, and only §4.5's unpaid add-ons ever get removed (after the 7-day grace).
+- **Upgrade-only**, immediate and prorated; never downgraded, so a quiet month does not bounce anyone down a tier.
+- **Enterprise shows no number** — "Contact Sales" everywhere (§14).
+- The intake metrics collected at quote time (PRD §1.3) recommend the starting tier; these measured thresholds decide when to suggest the next one.
+- Bot traffic is included in `sum.requests`. If that skews the numbers we can add bot filtering later with Logpush or the RUM `bot` dimension.
 
 ---
 
@@ -378,7 +438,7 @@ workers/api/src/payments/resolve.ts  resolveProvider(country, currency)
 
 ## 14. Enterprise "Contact Sales"
 
-- Tier card shows **"Contact Sales"** with no figure; selecting it opens a form (name, company email, company, expected scale, notes) → `POST /api/contact-sales` → `contact_sales_leads` + email to the team + auto-acknowledgement.
+- Tier card shows **"Contact Sales"** with no figure; selecting it opens a form (name, company email, company, business stage, expected scale, notes) → `POST /api/contact-sales` → row in `contact_sales_leads` **and** an email with every submitted field to **admin@techrepubliq.com** (decision 14), plus a short auto-acknowledgement to the customer. Same inbox receives Enterprise leads from the landing `#tiers` card and `/quote?tier=enterprise`.
 - Every price surface (landing tiers, quote summary, checkout, pricing page) shows "Contact Sales" for Enterprise — never a number, never a "Get Priced" result.
 
 ---
@@ -409,12 +469,13 @@ PRs 1 and 2 are independent. None touches the OBJ or GIF-panel code.
 
 ## 17. Remaining open items
 
-1. **FX source** for USD→NGN: admin-set `fx_rates` row, or an FX API on a cron? (blocks PR 4)
-2. **Installment counts** offered at checkout: 1/2/3 — confirm, and whether the first installment is 50% or an even split.
-3. **Cloudflare plan** per customer zone (drives retention) — do we standardise on Business (≈30-day retention) for every hosted project?
-4. **Cloudflare Web Analytics snippet**: do we inject it into every built site automatically, or is zone-level HTTP analytics enough for v1? (RUM gives top pages/referrers/devices; without it those widgets are dropped)
-5. **Contact Sales routing**: which inbox, and is there an SLA line we should show?
-6. **Tier limit thresholds** for the upgrade nudge (requests/day, bandwidth/month) — PRD leaves the numbers to judgment.
+1. **Is 12-month financing of the fee really interest-free?** (§11) If not, decide the deposit — e.g. 2 of 12 payments up front — before PR 6.
+2. **Which FX API** for the USD→NGN cron (§10) — provider is interchangeable, just needs a USD→NGN endpoint and a sane rate limit.
+3. **Zone plan sign-off** (§12.5): confirm Business on all hosted zones, or approve the Cloudflare-for-SaaS (custom hostnames) route before the per-zone bill starts scaling.
+4. **Cloudflare account model**: customer domains as zones in our account vs. the customer's own Cloudflare account — affects who pays the plan fee and who owns the zone.
+5. **Does the upgrade nudge need a bandwidth half?** Requests/day is the metric; bandwidth is currently display-only.
+
+Everything else from the first round is resolved in §9.
 
 ---
 
