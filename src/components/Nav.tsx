@@ -9,7 +9,7 @@ import { useTheme } from "./ThemeProvider";
 const links = [
   { label: "Home", href: "/" },
   { label: "Services", href: "/services" },
-  { label: "Pricing", href: "/#tiers" },
+  { label: "Pricing", href: "/pricing" },
   { label: "Work", href: "/#preview" },
   { label: "About", href: "/about" },
   { label: "Contact", href: "/#quote" },
@@ -290,7 +290,8 @@ export function Nav() {
                 const isAboutActive = l.href === "/about" && pathname === "/about";
                 const isHomeActive = l.href === "/" && pathname === "/";
                 const isServicesActive = l.href === "/services" && pathname.startsWith("/services");
-                const activeClass = (l.href === "/about" ? isAboutActive : l.href === "/services" ? isServicesActive : l.href === "/" ? isHomeActive : false) ? "active" : "";
+                const isPricingActive = l.href === "/pricing" && pathname.startsWith("/pricing");
+                const activeClass = (l.href === "/about" ? isAboutActive : l.href === "/services" ? isServicesActive : l.href === "/pricing" ? isPricingActive : l.href === "/" ? isHomeActive : false) ? "active" : "";
                 if (l.href.startsWith("/#")) {
                   return (
                     <li key={l.label}>
@@ -354,7 +355,7 @@ export function Nav() {
 
         <div className={`mobile-menu ${open ? "visible" : "hidden"}`}>
           {links.map((l) => {
-            const active = l.href === "/about" ? pathname === "/about" : l.href === "/services" ? pathname.startsWith("/services") : l.href === "/" ? pathname === "/" : false;
+            const active = l.href === "/about" ? pathname === "/about" : l.href === "/services" ? pathname.startsWith("/services") : l.href === "/pricing" ? pathname.startsWith("/pricing") : l.href === "/" ? pathname === "/" : false;
             if (l.href.startsWith("/#")) {
               return (
                 <a

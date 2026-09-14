@@ -39,7 +39,7 @@ export function Footer() {
               />
             </Link>
             <p className="text-[14px] mt-3 max-w-[32ch] text-[#9C99AC]">
-              Building future-ready software — web, app, and AI automation work, one project at a time.
+              Your product, built by a real team. Priced once. Hosting and backend included.
             </p>
             <div className="flex gap-3 mt-6">
               <a

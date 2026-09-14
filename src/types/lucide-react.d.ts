@@ -12,6 +12,11 @@ declare module "lucide-react" {
   export const CheckCircle2: FC<IconProps>;
   export const ChevronDown: FC<IconProps>;
   export const Clock: FC<IconProps>;
+  export const CreditCard: FC<IconProps>;
+  export const FolderKanban: FC<IconProps>;
+  export const LifeBuoy: FC<IconProps>;
+  export const Plus: FC<IconProps>;
+  export const Settings: FC<IconProps>;
   export const Eye: FC<IconProps>;
   export const EyeOff: FC<IconProps>;
   export const Gauge: FC<IconProps>;
