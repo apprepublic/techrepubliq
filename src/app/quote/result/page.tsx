@@ -7,24 +7,37 @@ import { Button } from "@/components/Button";
 import { services } from "@/lib/utils";
 import { useState, useEffect } from "react";
 import { CheckCircle2, Clock } from "lucide-react";
+import { getPricingEngine } from "@/lib/pricing-engine";
+import { computePrice, type CategorySlug } from "@/lib/product";
 
-// Mock quote generation
+// Interim: priced by the real model (PRD §4.2) until PR 3 replaces this route
+// with the price-summary step. Tier defaults to Startup — tier selection lands in PR 3.
 function generateQuote(
   category: string,
   description: string,
   timeline: string
 ) {
   const service = services.find((s) => s.slug === category);
-  const basePrice = service?.startingPrice ?? 2000;
-  const descLength = description.length;
-  const complexity = descLength > 200 ? 1.5 : descLength > 100 ? 1.2 : 1;
-  const price = Math.round(basePrice * complexity);
+  const slug = service?.slug ?? "web-development";
+  const brief = description || service?.short || slug;
+  const estimate = getPricingEngine().estimate(brief, slug);
+  const addons = getPricingEngine().inferAddons(brief, slug);
+  const price = computePrice({
+    category: slug as CategorySlug,
+    tierId: "startup",
+    pages: estimate.pages,
+    components: estimate.components,
+    complexity: estimate.complexity,
+    addons,
+    devFeeMode: "once",
+    cadence: "annual",
+  });
   const isCustom = category === "other";
   const ref = `QR-${Date.now().toString(36).toUpperCase()}`;
 
   return {
     referenceId: ref,
-    price,
+    price: Math.round((price.dueNowCents ?? price.devFee.payOnceCents) / 100),
     currency: "USD",
     scopeSummary: [
       isCustom
@@ -35,7 +48,7 @@ function generateQuote(
       "Deployment & hosting configuration",
       "30-day post-delivery support",
     ],
-    isEstimated: complexity > 1.3,
+    isEstimated: estimate.confidence !== "high",
     timeline:
       timeline === "asap"
         ? "2–3 weeks"

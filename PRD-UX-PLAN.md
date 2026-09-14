@@ -269,6 +269,8 @@ See §10 (architecture) and §11 (installments). Summary of edits:
 | 13 | **No Web Analytics/RUM snippet in v1** | Zone HTTP analytics covers everything the PRD asks for; no JS injected into customer sites (§12.6) |
 | 14 | **Contact Sales → admin@techrepubliq.com** | Lead form posts to `contact_sales_leads` and mails the full submission to that inbox (§14) |
 | 15 | **Tier limits measured in requests/day** | Ladder 10k / 100k / 1M requests per day; nudge only, never enforce (§12.7) |
+| 16 | **The 15% swing on the fee is a discount on paying once, not interest on installments** | Fee = 12 even payments; paying in one go takes 15% off (§11) |
+| 17 | **Customer domains are zones in OUR Cloudflare account** | We own and pay for the zone, query analytics with one token, and need an offboarding path (§12.5) |
 
 ---
 
@@ -307,7 +309,8 @@ workers/api/src/payments/resolve.ts  resolveProvider(country, currency)
 **Model:** the fee is a debt schedule, not a subscription.
 - `installment_plans(project_id, total_cents, currency, count, interval, started_at, status)`; `installments(id, plan_id, seq, due_at, amount_cents, status ∈ {Scheduled, Paid, Due, Grace, Failed}, attempts, paid_at)`.
 - **Decision 11 — twelve even monthly payments.** The one-time development fee splits into **12 equal monthly payments**; payment 1 is taken at checkout, the remaining 11 on monthly anniversaries. Splitting rule in integer cents: `base = floor(totalCents / 12)`, and the first `totalCents − 12 × base` payments get **+1 cent** so the twelve sum to the fee exactly.
-- **No markup on the fee itself.** The 15% swing in §4.7 applies to the *recurring service* figure (annual vs monthly), not to the development-fee installments — so this is interest-free financing over 12 months. Worth confirming commercially: it carries a real cost, and a deposit (e.g. 2 payments up front) is the usual alternative.
+- **Decision 16 — the discount sits on the one-time payment, not as interest on the installments.** The engine's figure *is* the 12-month total; paying the fee in one go takes **15% off** (`ONE_TIME_DISCOUNT`), and the 12 payments stay at `total ÷ 12` with nothing added. No deposit, no first-payment premium.
+  - Arithmetic note: a 15% discount off the installment total means spreading costs **1 ÷ 0.85 ≈ 17.6%** more than paying once. If you want "installments cost exactly 15% more than one-time", set `ONE_TIME_DISCOUNT = 0.15 / 1.15 ≈ 0.1304` in `src/lib/product.ts` — one constant, nothing else changes.
 - Cadence selector (annual/monthly +15%) stays on the **services** part of the order summary, clearly separated from the fee schedule.
 - First installment is charged at checkout through the customer's rail; the rest are charged from the **saved method** on due dates by a **Cron Worker** (`chargeSaved`).
 - **Grace:** on failure → status `Grace`, service continues 7 days, reminder emails on days 1/3/5/7 (PRD §4.5), then dunning: the affected **add-on services** are removed — the project itself is never deleted mid-build.
@@ -393,12 +396,24 @@ Note the trap: **Pro keeps less traffic history (7 days) than Free (30 days)**. 
 2. **Cost scales with project count.** 25 projects on Business ≈ $5–6k/month at list. That is a real per-customer unit cost and needs to sit inside the tier pricing.
 3. **Consistency.** If zones sit on different plans, every customer's dashboard has a different "how far back" and we inherit the support burden of explaining it.
 
-**Recommendation — standardise, and do not use Pro**
-- **Standardise one plan for all hosted project zones** so retention, features and the UI's date presets are identical everywhere (decision 12).
-- **Business is the safe default** for hosting paying customers: 30-day traffic + cache retention, custom certificates, 100% uptime SLA, stronger WAF.
-- **If the per-zone cost is too steep, use Cloudflare for SaaS (custom hostnames)** rather than Free zones: many customer domains then ride on **one** parent Business zone, which is both cheaper at scale *and* gives a single consistent retention window. Preview subdomains (`*.techrepubliq.com`) already inherit our main zone for free.
-- **Avoid Pro** — strictly worse retention than Free, for money.
-- **Enterprise only** when we need Logpush-scale log export or contractual terms.
+**Decision 17 — the zones are ours.** Customer domains (and the preview subdomains) are zones **in TechRepubliQ's Cloudflare account**. That buys simplicity and costs us money:
+
+| Consequence | What it means for us |
+|---|---|
+| One API token | We query every project's analytics with a single `CF_API_TOKEN` — no per-customer credentials, no OAuth dance |
+| We own DNS/SSL/WAF | We can provision, fix and secure a project without waiting on the customer |
+| **We pay the plan fee** | Every zone's plan is a COGS line inside the $5/$25/$50 tiers — see the cost reality check below |
+| Zone ownership | The customer's registrar still points at us; we need an offboarding path (NS hand-back / zone export) and a contract clause so a customer can't silently repoint nameservers and break their own site |
+| Blast radius | Abuse or an L3/L4 attack on one project hits our account — baseline WAF/rate-limiting everywhere, and Enterprise isolation only if a customer pays for it |
+
+**Cost reality check — this decides the plan more than retention does.** A Business zone is ~$200–250/month. An MVP customer pays **$5/month**. A per-project Business zone is therefore ~40× the revenue of the cheapest tier, and even Pro (~$20–25) is 5× it. Retention does not justify that, and our own nightly roll-up already solves long-term history — so:
+
+**Recommendation — Free zones by default, Business as a paid upgrade, avoid Pro**
+- **Default every hosted project zone to Free ($0).** Free has the *best* traffic retention of any self-serve plan (30 days, more than Pro's 7), universal SSL, and full DNS control including the apex domain. Infra (Workers/D1/R2) sits in free tiers at MVP volumes, so a $5/month project stays viable.
+- **Sell Business per project** (~$200–250/mo) only where the customer needs its actual features: 100% uptime SLA, custom certificate upload, stronger WAF, prioritised support — and price that into their plan, don't absorb it.
+- **Avoid Pro**: 7-day traffic retention and a real bill. Strictly worse on both counts for us.
+- **At scale (≈100+ projects), move to Cloudflare for SaaS (custom hostnames)** on one Business parent: 100 hostnames included on Free/Pro/Business, then $0.10/hostname/month [15](https://developers.cloudflare.com/cloudflare-for-platforms/cloudflare-for-saas/plans/). Caveat: apex proxying (customer's bare domain, not a subdomain) and hostname webhooks are Enterprise-only [15](https://developers.cloudflare.com/cloudflare-for-platforms/cloudflare-for-saas/plans/), so standalone Free zones remain the simplest way to serve `client.com` itself.
+- **Enterprise only** when a customer pays for Logpush-scale log export or contractual terms.
 
 **What makes this decision low-risk:** the nightly roll-up into `analytics_daily` means our dashboards own the long-term history regardless of plan. Cloudflare retention only bounds (a) backfilling a project before roll-ups begin and (b) the live-query fallback if a roll-up fails. So pick the plan on commercial/feature grounds, and let the UI keep reading `settings.notOlderThan` per zone at runtime (§12.3) instead of hardcoding any window.
 
@@ -469,10 +484,10 @@ PRs 1 and 2 are independent. None touches the OBJ or GIF-panel code.
 
 ## 17. Remaining open items
 
-1. **Is 12-month financing of the fee really interest-free?** (§11) If not, decide the deposit — e.g. 2 of 12 payments up front — before PR 6.
+1. **Development-fee calibration** (new, from PR 2): with PRD §4.2's rates ($500 + $3/page + $3/component), realistic briefs land at **$500–$2,000** — well under the $2,500+ the old site advertised. Options: (a) keep the rates and widen `COMPLEXITY` multipliers in `src/lib/product.ts` (one-line change), (b) renegotiate the rates, or (c) accept the lower band as the new positioning. Needs your call before the engine goes live in PR 3.
 2. **Which FX API** for the USD→NGN cron (§10) — provider is interchangeable, just needs a USD→NGN endpoint and a sane rate limit.
-3. **Zone plan sign-off** (§12.5): confirm Business on all hosted zones, or approve the Cloudflare-for-SaaS (custom hostnames) route before the per-zone bill starts scaling.
-4. **Cloudflare account model**: customer domains as zones in our account vs. the customer's own Cloudflare account — affects who pays the plan fee and who owns the zone.
+3. **Confirm the 17.6%/15% arithmetic** on the fee (§11) — the discount is applied to the installment total; flip `ONE_TIME_DISCOUNT` if you meant the other anchor.
+4. **Zone plan sign-off** (§12.5): confirm Free-by-default with Business as a per-project paid upgrade, and the offboarding clause for customer-owned registrars.
 5. **Does the upgrade nudge need a bandwidth half?** Requests/day is the metric; bandwidth is currently display-only.
 
 Everything else from the first round is resolved in §9.
@@ -482,13 +497,16 @@ Everything else from the first round is resolved in §9.
 ## 18. QA checklist
 
 ```bash
-# Constraint 1 — OBJ block byte-identical
-sed -n "$(grep -n 'const CHROME_SUNBURST_OBJ' public/TechRepubliQ-preview_v7.html | cut -d: -f1),$(grep -n "staggerIn('.service-card'" public/TechRepubliQ-preview_v7.html | cut -d: -f1)p" \
-  public/TechRepubliQ-preview_v7.html | md5sum        # 99830b943889785e3502ea347cae357f
-# Constraint 2 — GIF rule byte-identical, single reference
-awk '/^  \.panel-hero-card \{/,/^  \}/' public/TechRepubliQ-preview_v7.html | md5sum   # 21ba8dc790ee7809b96592887a932162
-grep -c "anim.gif" public/TechRepubliQ-preview_v7.html                                  # 1
-grep -c "ring3d"   public/TechRepubliQ-preview_v7.html                                  # 11
+# Constraints 1 & 2 — one script, marker-based (line numbers drift, markers don't)
+python3 scripts/check-guardrails.py
+#   obj_script      7d963ae7ecfa437bb50d06911dcd8b00   <script> block: three.js scene, material, loader, scroll animation
+#   panel_card_rule e265b1948bcf3038113988436a6e76a3   .panel-hero-card { ... } — the GIF container
+#   anim.gif 1 · ring3d 11
+# (The two 9acc338-era md5s in earlier notes used pre-PR-1 line offsets; this script replaces them.)
+
+# Pricing model — client and server must agree
+node --experimental-strip-types scripts/check-pricing-mirror.mjs
+
 # Constraint 3 — no hex drift outside the landing theme injector
 grep -rnE "#[0-9A-Fa-f]{6}" src/ --include=*.tsx --include=*.ts | grep -v "src/app/page.tsx" | grep -v ThemeProvider
 ```
@@ -497,6 +515,7 @@ grep -rnE "#[0-9A-Fa-f]{6}" src/ --include=*.tsx --include=*.ts | grep -v "src/a
 - [ ] OBJ spins on scroll, settles, never drifts; GIF still renders in the panel
 - [ ] Every cross-page link inside the iframe has `target="_top"`
 - [ ] Client and server totals agree; monthly = annual × 1.15 ÷ 12 to the cent; Enterprise shows no number
+- [ ] 12 installments sum to the fee exactly; one-time = 15% off; `/services` and every `/services/<slug>` render in dark and light
 - [ ] Paystack + Stripe + PayPal happy paths and webhook signature verification (incl. `charge_authorization` for installments)
 - [ ] Analytics: 429/backoff path, `notOlderThan`-driven date presets, "estimated" chip when `sampleInterval > 1`
 - [ ] `npm ci && npx tsc --noEmit && npm run lint && npm run build`

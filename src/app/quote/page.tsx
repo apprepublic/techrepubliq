@@ -183,7 +183,7 @@ export default function QuotePage() {
   return (
     <div className="mx-auto max-w-[640px] px-md py-xl">
       <h1 className="font-display text-[28px] leading-[36px] font-semibold text-ink mb-lg">
-        Request a Quote
+        Get Started
       </h1>
 
       {/* Resume banner */}
@@ -266,7 +266,7 @@ export default function QuotePage() {
                     />
                     <span className="font-medium text-ink">{s.title}</span>
                     <p className="text-xs text-slate mt-xs">
-                      {s.description}
+                      {s.short}
                     </p>
                   </label>
                 ))}
@@ -523,7 +523,7 @@ export default function QuotePage() {
             loading={generating}
             onClick={handleGenerate}
           >
-            Generate Quote
+            Get Priced
           </Button>
         )}
       </div>

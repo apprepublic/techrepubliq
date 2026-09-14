@@ -55,7 +55,7 @@ export default function DashboardPage() {
             You haven&apos;t placed any orders yet.
           </p>
           <Link href="/quote">
-            <Button>Request a Quote</Button>
+            <Button>Get Started</Button>
           </Link>
         </div>
       ) : (
