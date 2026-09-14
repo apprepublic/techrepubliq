@@ -1,268 +1,417 @@
 "use client";
 
-import Link from "next/link";
-import { motion } from "motion/react";
-import {
-  ArrowRight,
-  Check,
-  Globe,
-  Smartphone,
-  Bot,
-  Sparkles,
-  GraduationCap,
-  Gauge,
-} from "lucide-react";
-import ChromeSunburst from "@/components/ChromeSunburst";
-import { services, projectTiers, type ServiceIcon } from "@/lib/utils";
-import { useTone } from "@/lib/theme";
-import { PrimaryLink, GhostLink } from "@/components/product-ui";
-
-const icons: Record<ServiceIcon, typeof Globe> = {
-  globe: Globe,
-  smartphone: Smartphone,
-  bot: Bot,
-  sparkles: Sparkles,
-  "graduation-cap": GraduationCap,
-  gauge: Gauge,
-};
-
-const journey = [
-  { n: "01", t: "Get Started", d: "Pick a category — web, app, automation, integration, or training." },
-  { n: "02", t: "Pick your tier", d: "MVP, Startup, Business, or Enterprise. Tiers scale services, not the build fee." },
-  { n: "03", t: "Send the brief", d: "Logo, assets, and what you want built. No plugin shopping." },
-  { n: "04", t: "Get Priced", d: "One total. The engine infers add-ons. You can still add more." },
-  { n: "05", t: "Pay & we build", d: "A human team builds a preview. Reviews included by tier." },
-  { n: "06", t: "Launch & manage", d: "Go live on your domain. Services, analytics, and edits live in the dashboard." },
-];
-
-const proofs = [
-  { v: "One-time", l: "Build fee — not a token meter" },
-  { v: "4 tiers", l: "MVP to Enterprise" },
-  { v: "Human", l: "Reviews before launch" },
-];
-
-const quotes = [
-  { q: "We described the product once. They priced it once. It actually shipped.", n: "Amaka O.", r: "Founder, Lagos" },
-  { q: "No one handed us a pile of API keys. The product just works, and they own the stack.", n: "Daniel K.", r: "Ops lead, Accra" },
-  { q: "The preview link was enough to raise the next round. Then we hit Go Live.", n: "Priya S.", r: "CEO, London" },
-];
+import { useEffect, useRef } from "react";
+import { useTheme } from "@/components/ThemeProvider";
 
 export default function HomePage() {
-  const t = useTone();
+  const { theme } = useTheme();
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+
+  useEffect(() => {
+    const rootNav = document.getElementById("rootNav");
+    const rootFooter = document.getElementById("rootFooter");
+    if (rootNav) rootNav.style.display = "";
+    if (rootFooter) rootFooter.style.display = "none";
+
+    const mainEl = document.querySelector("main");
+    if (mainEl) {
+      (mainEl as HTMLElement).style.paddingTop = "0";
+      (mainEl as HTMLElement).style.minHeight = "0";
+      (mainEl as HTMLElement).style.margin = "0";
+      (mainEl as HTMLElement).style.overflow = "hidden";
+      (mainEl as HTMLElement).style.height = "100vh";
+    }
+
+    const htmlEl = document.documentElement;
+    const prevHtmlOverflow = htmlEl.style.overflow;
+    const prevHtmlHeight = htmlEl.style.height;
+    const prevHtmlBg = htmlEl.style.background;
+
+    const prevBodyOverflow = document.body.style.overflow;
+    const prevBodyHeight = document.body.style.height;
+    const prevBodyBg = document.body.style.background;
+
+    htmlEl.style.overflow = "hidden";
+    htmlEl.style.height = "100%";
+    document.body.style.overflow = "hidden";
+    document.body.style.height = "100%";
+    document.body.style.margin = "0";
+
+    const applyThemeToOuter = (t: string) => {
+      const bg = t === "dark" ? "#0A0912" : "#F6F5F9";
+      htmlEl.style.background = bg;
+      document.body.style.background = bg;
+      if (mainEl) (mainEl as HTMLElement).style.background = bg;
+      const iframe = document.getElementById("v7-iframe") as HTMLIFrameElement | null;
+      if (iframe) iframe.style.background = bg;
+    };
+
+    applyThemeToOuter(theme);
+
+    const getThemeCSS = (t: string) => {
+      if (t === "dark") {
+        return `
+          :root {
+            --text-primary: #F7F6FA !important;
+            --text-secondary: #9C99AC !important;
+            --bg-light: #0A0912 !important;
+            --surface-light: #141220 !important;
+            --border-light: #242233 !important;
+            --bg-dark: #0A0912 !important;
+            --text-on-dark: #F7F6FA !important;
+            --text-on-dark-secondary: #9C99AC !important;
+          }
+          html { scroll-behavior: smooth; background: #0A0912 !important; }
+          body { background: #0A0912 !important; margin: 0 !important; padding-top: 0 !important; color: #F7F6FA !important; }
+          header.nav, #siteNav { display: none !important; }
+          .hero {
+            background: #0A0912 !important;
+            padding-top: calc(200px + 68px) !important;
+            color: #F7F6FA !important;
+            position: relative; overflow: hidden;
+          }
+          .hero::before {
+            content: '' !important; position: absolute !important; inset: -20px !important; z-index: 0 !important;
+            display: block !important; opacity: 1 !important;
+            background: linear-gradient(90deg, rgba(10,9,18,0.72) 0%, rgba(10,9,18,0.35) 45%, rgba(10,9,18,0.15) 100%), url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAB5sAAAMoCAIAAAB+jhAeAABVVGNhQlgAAFVUanVtYgAAAB5qdW1kYzJwYQARABCAAACqADibcQNjMnBhAAAAVS5qdW1iAAAAR2p1bWRjMm1hABEAEIAAAKoAOJtxA3VybjpjMnBhOjI1NDU1OTg5LWQ3YTQtNDg1OS1hZmNiLTcyMWFlNTc0NjVmYgAAAAxXanVtYgAAAClqdW1kYzJhcwARABCAAACqADibcQNjMnBhLmFzc2VydGlvbnMAAAAJ0Wp1bWIAAAA7anVtZEDLDDK7ikidpwsq1vR/Q2kTYzJwYS5pY29uAAAAABhjMnNoZJ8d0UTwTfAvmo4MhMi7BQAAABdiZmRiAGltYWdlL3N2Zyt4bWwAAAAJd2JpZGI8c3ZnIHdpZHRoPSI3MTYiIGhlaWdodD0iNzE2IiB2aWV3Qm94PSIwIDAgNzE2IDcxNiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTUwOC43NDkgMzE3LjM5OUM1MTYuNzc3IDI4Ny4zMTQgNTA4Ljk5MSAyNTMuODg0IDQ4NS4zODkgMjMwLjI4MkM0NjEuNzg4IDIwNi42ODEgNDI4LjM2IDE5OC44OTUgMzk4LjI3MyAyMDYuOTIzQzM3Ni4yMzEgMTg0LjkyOCAzNDMuMzkgMTc0Ljk1NiAzMTEuMTQ4IDE4My41OTZDMjc4LjkwNiAxOTIuMjM0IDI1NS40NSAyMTcuMjkyIDI0Ny4zNiAyNDcuMzYxQzIxNy4yOTEgMjU1LjQ1MSAxOTIuMjMzIDI3OC45MSAxODMuNTk1IDMxMS4xNDlDMTc0Ljk1NyAzNDMuMzkxIDE4NC45MjcgMzc2LjIzMiAyMDYuOTI0IDM5OC4yNzRDMTk4Ljg5NiA0MjguMzU5IDIwNi42ODMgNDYxLjc4OSAyMzAuMjg0IDQ4NS4zOTFDMjUzLjg4NSA1MDguOTkyIDI4Ny4zMTMgNTE2Ljc3OSAzMTcuNDAxIDUwOC43NUMzMzkuNDQyIDUzMC43NDUgMzcyLjI4NiA1NDAuNzE3IDQwNC41MjUgNTMyLjA3OUM0MzYuNzY3IDUyMy40NDEgNDYwLjIyMyA0OTguMzg0IDQ2OC4zMTMgNDY4LjMxNUM0OTguMzgzIDQ2MC4yMjQgNTIzLjQ0IDQzNi43NjYgNTMyLjA3OCA0MDQuNTI2QzU0MC43MTYgMzcyLjI4NSA1MzAuNzQ3IDMzOS40NDMgNTA4Ljc0OSAzMTcuNDAyVjMxNy4zOTlaTTQ3MC44OTkgMjQ0Ljc3NkM0ODYuODkyIDI2MC43NyA0OTMuNDg4IDI4Mi42MDEgNDkwLjY4NyAzMDMuNDEyTDQxNS41NzcgMjYwLjA0NkM0MTIuNDExIDI1OC4yMTggNDA4LjUwOSAyNTguMjE4IDQwNS4zNDUgMjYwLjA0NkwzMTcuNDAxIDMxMC44MlYyNzcuNTI2QzMxNy40MDEgMjc1LjE5MSAzMTguNjUyIDI3My4wMDUgMzIwLjY3NiAyNzEuODM3TDM4Ny42NDQgMjMzLjE3NEM0MTQuMTc4IDIxOC4zNTMgNDQ4LjM0NiAyMjIuMjIzIDQ3MC45MDEgMjQ0Ljc3Nkg0NzAuODk5Wk0zNTcuODM3IDMxMS4xNDRMMzk4LjI3NSAzMzQuNDkxVjM4MS4xODVMMzU3LjgzNyA0MDQuNTMyTDMxNy4zOTggMzgxLjE4NVYzMzQuNDkxTDM1Ny44MzcgMzExLjE0NFpNMjY0Ljc3NiAyNjkuNjkzQzI2NS4yMDcgMjM5LjMwNSAyODUuNjQ0IDIxMS42NDkgMzE2LjQ1MyAyMDMuMzkzQzMzOC4zIDE5Ny41NCAzNjAuNTA1IDIwMi43NDQgMzc3LjEyNyAyMTUuNTczTDMwMi4wMTQgMjU4LjkzN0MyOTguODQ4IDI2MC43NjQgMjk2Ljg5OCAyNjQuMTQ0IDI5Ni44OTggMjY3Ljc5OFYzNjkuMzQ2TDI2OC4wNjUgMzUyLjY5OUMyNjYuMDQzIDM1MS41MzEgMjY0Ljc3NiAzNDkuMzUzIDI2NC43NzYgMzQ3LjAxN1YyNjkuNjkxVjI2OS42OTNaTTIwMy4zOTEgMzE2LjQ1NEMyMDkuMjQ0IDI5NC42MDggMjI0Ljg1NCAyNzcuOTc4IDI0NC4yNzYgMjY5Ljk5OVYzNTYuNzNDMjQ0LjI3NiAzNjAuMzg0IDI0Ni4yMjYgMzYzLjc2MyAyNDkuMzkyIDM2NS41OTFMMzM3LjMzNyA0MTYuMzY1TDMwOC41MDMgNDMzLjAxM0MzMDYuNDgxIDQzNC4xODEgMzAzLjk2MSA0MzQuMTg4IDMwMS45MzkgNDMzLjAyTDIzNC45NzEgMzk0LjM1N0MyMDguODY4IDM3OC43ODkgMTk1LjEzOCAzNDcuMjYxIDIwMy4zOTEgMzE2LjQ1NFpNMjQ0Ljc3NSA0NzAuOUMyMjguNzgxIDQ1NC45MDYgMjIyLjE4NiA0MzMuMDc1IDIyNC45ODYgNDEyLjI2NEwzMDAuMDk2IDQ1NS42M0MzMDMuMjYzIDQ1Ny40NTcgMzA3LjE2NCA0NTcuNDU3IDMxMC4zMjggNDU1LjYzTDM5OC4yNzMgNDA0Ljg1NlY0MzguMTQ5QzM5OC4yNzMgNDQwLjQ4NSAzOTcuMDIyIDQ0Mi42NzEgMzk0Ljk5NyA0NDMuODM5TDMyOC4wMjkgNDgyLjUwMkMzMDEuNDk1IDQ5Ny4zMjIgMjY3LjMyNyA0OTMuNDUyIDI0NC43NzIgNDcwLjlIMjQ0Ljc3NVpNNDUwLjg5NyA0NDUuOTgyQzQ1MC40NjYgNDc2LjM3MSA0MzAuMDI5IDUwNC4wMjcgMzk5LjIyIDUxMi4yODNDMzc3LjM3MyA1MTguMTM2IDM1NS4xNjggNTEyLjkzMiAzMzguNTQ3IDUwMC4xMDJMNDEzLjY1OSA0NTYuNzM4QzQxNi44MjYgNDU0LjkxMSA0MTguNzc1IDQ1MS41MzIgNDE4Ljc3NSA0NDcuODc3VjM0Ni4zMjlMNDQ3LjYwOSAzNjIuOTc3QzQ0OS42MzEgMzY0LjE0NSA0NTAuODk3IDM2Ni4zMjMgNDUwLjg5NyAzNjguNjU5VjQ0NS45ODVWNDQ1Ljk4MlpNNTEyLjI4MiAzOTkuMjIxQzUwNi40MjkgNDIxLjA2OCA0OTAuODE5IDQzNy42OTcgNDcxLjM5NyA0NDUuNjc2VjM1OC45NDZDNDcxLjM5NyAzNTUuMjkyIDQ2OS40NDggMzUxLjkxMiA0NjYuMjgxIDM1MC4wODVMMzc4LjMzNiAyOTkuMzExTDQwNy4xNyAyODIuNjYzQzQwOS4xOTIgMjgxLjQ5NSA0MTEuNzEyIDI4MS40ODcgNDEzLjczNCAyODIuNjU1TDQ4MC43MDIgMzIxLjMxOEM1MDYuODA1IDMzNi44ODcgNTIwLjUzNiAzNjguNDE1IDUxMi4yODIgMzk5LjIyMVoiIGZpbGw9ImJsYWNrIi8+Cjwvc3ZnPgo=') center center / cover no-repeat, #0A0912) !important;
+            background-repeat: no-repeat !important; background-position: center !important; background-size: cover !important;
+            filter: blur(18px) !important; -webkit-filter: blur(18px) !important; transform: scale(1.08) !important;
+          }
+          .hero h1, .hero h2 { color: #F7F6FA !important; }
+          .hero p.lede { color: #9C99AC !important; }
+          
+          /* ===== PANEL SECTION - DARK MODE - RESTORE GIF anim.gif ===== */
+          .panel-section { background: transparent !important; color: #F7F6FA !important; margin-top: 0 !important; padding-top: 48px !important; padding-bottom: 80px !important; }
+          .panel-hero-card { 
+            position: relative !important;
+            overflow: hidden !important;
+            background: url('/assets/anim.gif') center center / cover no-repeat !important;
+            border: 1px solid rgba(255,255,255,0.08) !important;
+          }
+          .panel-hero-card .stacked-words { color: #FFFFFF !important; }
+          .panel-hero-card .stacked-words span { color: #FFFFFF !important; font-size: 48px !important; font-weight: 700 !important; line-height: 1.05 !important; }
+          .info-box { background: rgba(26,24,40,0.8) !important; border: 1px solid rgba(255,255,255,0.08) !important; }
+          .info-box h3 { color: #F7F6FA !important; }
+          .info-box p { color: #9C99AC !important; }
+          .info-icons span { background: rgba(255,255,255,0.08) !important; }
+          .info-icons svg { stroke: #FF8A80 !important; }
+          .stat-card { background: rgba(26,24,40,0.8) !important; border: 1px solid rgba(255,255,255,0.08) !important; }
+          .stat-value { color: #F7F6FA !important; }
+          .stat-label { color: #9C99AC !important; }
+          .stat-card.featured { background: linear-gradient(135deg, #FF5C4D 0%, #C8102E 100%) !important; border-color: transparent !important; }
+          .stat-card.featured .stat-value { color: #fff !important; }
+          .stat-card.featured .stat-label { color: rgba(255,255,255,0.85) !important; }
+          .stat-cta { background: rgba(255,255,255,0.92) !important; color: #C8102E !important; }
+          
+          .services { background: transparent !important; }
+          .services .section-head h2 { color: #F7F6FA !important; }
+          .services .section-head .eyebrow { color: #FF8A80 !important; background: rgba(200,16,46,0.12) !important; border-color: rgba(200,16,46,0.35) !important; }
+          .service-card { background: rgba(26,24,40,0.8) !important; border: 1px solid rgba(255,255,255,0.08) !important; box-shadow: 0 8px 32px rgba(0,0,0,0.3) !important; }
+          .service-card h3 { color: #F7F6FA !important; }
+          .service-card p { color: #9C99AC !important; }
+          .service-icon { background: rgba(200,16,46,0.15) !important; }
+          .service-icon svg { stroke: #FF8A80 !important; }
+          .service-link { color: #FF8A80 !important; }
+          .hero-trust span { color: #9C99AC !important; border-color: #242233 !important; }
+          .hero .btn-ghost-dark { color: #F7F6FA !important; border-color: #242233 !important; }
+          .cta .btn-ghost-light, .preview .btn-ghost-light { color: #F7F6FA !important; border-color: #242233 !important; }
+
+          /* ===== TIERS - DARK MODE ===== */
+          .tiers { background: transparent !important; }
+          .tiers .section-head h2 { color: #F7F6FA !important; }
+          .tiers .section-head p { color: #9C99AC !important; }
+          .tiers .section-head .eyebrow { color: #FF8A80 !important; background: rgba(200,16,46,0.12) !important; border-color: rgba(200,16,46,0.35) !important; }
+          .tier-card { background: rgba(26,24,40,0.8) !important; border: 1px solid rgba(255,255,255,0.08) !important; box-shadow: 0 8px 32px rgba(0,0,0,0.3) !important; }
+          .tier-card.featured { border-color: rgba(255,138,128,0.6) !important; }
+          .tier-name { color: #F7F6FA !important; }
+          .tier-for { color: #9C99AC !important; }
+          .tier-price { color: #F7F6FA !important; }
+          .tier-price span { color: #9C99AC !important; }
+          .tier-rev { color: #9C99AC !important; }
+          .tier-note { color: #9C99AC !important; }
+          
+          .process { background: transparent !important; color: #F7F6FA !important; }
+          .process .section-head .eyebrow { color: #FF8A80 !important; background: rgba(200,16,46,0.12) !important; border-color: rgba(200,16,46,0.35) !important; }
+          .process .section-head h2 { color: #F7F6FA !important; }
+          .process .section-head p { color: #9C99AC !important; }
+          .process-card { background: rgba(26,24,40,0.8) !important; border: 1px solid rgba(255,255,255,0.08) !important; }
+          .process-num { color: rgba(255,255,255,0.5) !important; }
+          .process-card h3 { color: #F7F6FA !important; }
+          .process-card p { color: #9C99AC !important; }
+          
+          .testimonials { background: transparent !important; }
+          .testimonials .section-head h2 { color: #F7F6FA !important; }
+          .testimonials .section-head p { color: #9C99AC !important; }
+          .testimonials .section-head .eyebrow { color: #FF8A80 !important; background: rgba(200,16,46,0.12) !important; border-color: rgba(200,16,46,0.35) !important; }
+          .testimonial-card { background: rgba(26,24,40,0.8) !important; border: 1px solid rgba(255,255,255,0.08) !important; }
+          .testimonial-card p.quote { color: #F7F6FA !important; }
+          .testimonial-name { color: #F7F6FA !important; }
+          .testimonial-role { color: #9C99AC !important; }
+          .testimonial-quote-mark { background: rgba(200,16,46,0.15) !important; color: #FF8A80 !important; }
+          
+          .preview { background: transparent !important; color: #F7F6FA !important; }
+          .preview .section-head h2 { color: #F7F6FA !important; }
+          .preview .section-head p { color: #9C99AC !important; }
+          .preview .section-head .eyebrow { color: #FF8A80 !important; background: rgba(200,16,46,0.12) !important; border-color: rgba(200,16,46,0.35) !important; }
+          .mock-card { background: rgba(26,24,40,0.9) !important; border: 1px solid rgba(255,255,255,0.1) !important; color: #F7F6FA !important; box-shadow: 0 24px 60px rgba(0,0,0,0.5) !important; }
+          .mock-label { color: #9C99AC !important; }
+          .mock-price { color: #F7F6FA !important; }
+          .mock-line { background: #242233 !important; }
+          
+          .cta { background: transparent !important; }
+          .cta h2 { color: #F7F6FA !important; }
+          .cta p.lede { color: #9C99AC !important; }
+          .cta .eyebrow { color: #FF8A80 !important; background: rgba(200,16,46,0.12) !important; border-color: rgba(200,16,46,0.35) !important; }
+          .contact-form { background: rgba(26,24,40,0.8) !important; border: 1px solid rgba(255,255,255,0.08) !important; }
+          .form-field label { color: #9C99AC !important; }
+          .form-field input, .form-field textarea { background: rgba(10,9,18,0.6) !important; border-color: #242233 !important; color: #F7F6FA !important; }
+          .form-field input::placeholder, .form-field textarea::placeholder { color: #6B6876 !important; }
+          .form-meta { color: #9C99AC !important; }
+          footer { background: rgba(10,9,18,0.85) !important; backdrop-filter: blur(18px) !important; -webkit-backdrop-filter: blur(18px) !important; color: #F7F6FA !important; }
+          html, body { overflow-x: hidden !important; }
+          @media (max-width: 860px) {
+            .hero {
+              min-height: 100vh !important;
+              min-height: 100dvh !important;
+              display: flex !important;
+              align-items: center !important;
+              padding-top: calc(80px + 68px) !important;
+              padding-bottom: 32px !important;
+            }
+            .hero .wrap { width: 100% !important; }
+            #ring3d { width: 100% !important; max-width: 440px !important; }
+          }
+        `;
+      } else {
+        return `
+          :root {
+            --text-primary: #14121F !important;
+            --text-secondary: #6B6876 !important;
+            --bg-light: #F6F5F9 !important;
+            --surface-light: #FFFFFF !important;
+            --border-light: #E8E6F0 !important;
+            --text-on-dark: #14121F !important;
+            --text-on-dark-secondary: #6B6876 !important;
+          }
+          html { scroll-behavior: smooth; background: #F6F5F9 !important; }
+          body { background: #F6F5F9 !important; margin: 0 !important; padding-top: 0 !important; color: #14121F !important; }
+          header.nav, #siteNav { display: none !important; }
+          .hero {
+            background: #F6F5F9 !important;
+            background-image: radial-gradient(ellipse at 20% 20%, rgba(200,16,46,0.06), transparent 50%), radial-gradient(ellipse at 80% 80%, rgba(255,92,77,0.04), transparent 50%) !important;
+            padding-top: calc(200px + 68px) !important;
+            color: #14121F !important;
+            position: relative; overflow: hidden;
+          }
+          .hero::before {
+            content: '' !important; position: absolute !important; inset: -20px !important; z-index: 0 !important;
+            display: block !important; opacity: 0.6 !important;
+            background: linear-gradient(90deg, rgba(246,245,249,0.9) 0%, rgba(246,245,249,0.6) 45%, rgba(246,245,249,0.3) 100%), 
+                        radial-gradient(ellipse at center, rgba(200,16,46,0.08), transparent 70%) !important;
+            filter: blur(18px) !important; -webkit-filter: blur(18px) !important; transform: scale(1.08) !important;
+          }
+          .hero-ring-wrap::after {
+            content: ''; position: absolute; inset: 0; z-index: 1;
+            background: radial-gradient(ellipse at center, rgba(246,245,249,0.4), transparent 70%);
+            pointer-events: none;
+          }
+          .hero h1 { color: #14121F !important; }
+          .hero h1 span:first-child { color: #14121F !important; }
+          .hero h1 span:last-child { color: #C8102E !important; }
+          .hero p.lede { color: #6B6876 !important; }
+          .hero-copy { position: relative; z-index: 2; }
+          .hero-ring-wrap { position: relative; z-index: 2; }
+          
+          /* ===== PANEL SECTION - LIGHT MODE - RESTORE GIF anim.gif WITH LIGHT OVERLAY ===== */
+          .panel-section { background: transparent !important; color: #14121F !important; margin-top: 0 !important; padding-top: 48px !important; padding-bottom: 80px !important; }
+          .panel-hero-card { 
+            position: relative !important;
+            overflow: hidden !important;
+            background: url('/assets/anim.gif') center center / cover no-repeat !important;
+            border: 1px solid rgba(255,255,255,0.8) !important; 
+            box-shadow: 0 8px 32px rgba(20,18,31,0.08) !important;
+          }
+          .panel-hero-card .stacked-words span { color: #FFFFFF !important; font-size: 48px !important; font-weight: 700 !important; line-height: 1.05 !important; }
+          .info-box { background: rgba(255,255,255,0.85) !important; border: 1px solid rgba(255,255,255,0.8) !important; box-shadow: 0 4px 16px rgba(20,18,31,0.06) !important; }
+          .info-box h3 { color: #14121F !important; }
+          .info-box p { color: #6B6876 !important; }
+          .info-icons span { background: rgba(200,16,46,0.08) !important; }
+          .info-icons svg { stroke: #C8102E !important; }
+          .stat-card { background: rgba(255,255,255,0.85) !important; border: 1px solid rgba(255,255,255,0.8) !important; box-shadow: 0 4px 16px rgba(20,18,31,0.06) !important; }
+          .stat-value { color: #14121F !important; }
+          .stat-label { color: #6B6876 !important; }
+          .stat-card.featured { background: linear-gradient(135deg, #FF5C4D 0%, #C8102E 100%) !important; border-color: transparent !important; }
+          .stat-card.featured .stat-value { color: #fff !important; }
+          .stat-card.featured .stat-label { color: rgba(255,255,255,0.9) !important; }
+          .stat-cta { background: #14121F !important; color: #fff !important; }
+          
+          .services { background: transparent !important; }
+          .services .section-head h2 { color: #14121F !important; }
+          .services .section-head .eyebrow { background: #FBE2E4 !important; color: #C8102E !important; }
+          .service-card { background: rgba(255,255,255,0.85) !important; border: 1px solid rgba(255,255,255,0.8) !important; box-shadow: 0 4px 16px rgba(20,18,31,0.06) !important; }
+          .service-card h3 { color: #14121F !important; }
+          .service-card p { color: #6B6876 !important; }
+          .service-icon { background: #FBE2E4 !important; }
+          .service-icon svg { stroke: #C8102E !important; }
+          .service-link { color: #C8102E !important; }
+          .hero-trust span { color: #6B6876 !important; border-color: #E8E6F0 !important; }
+          .hero .btn-ghost-dark { color: #14121F !important; border-color: #E8E6F0 !important; }
+          .cta .btn-ghost-light, .preview .btn-ghost-light { color: #14121F !important; border-color: #E8E6F0 !important; }
+
+          /* ===== TIERS - LIGHT MODE ===== */
+          .tiers { background: transparent !important; }
+          .tiers .section-head h2 { color: #14121F !important; }
+          .tiers .section-head p { color: #6B6876 !important; }
+          .tiers .section-head .eyebrow { background: #FBE2E4 !important; color: #C8102E !important; }
+          .tier-card { background: rgba(255,255,255,0.85) !important; border: 1px solid rgba(255,255,255,0.8) !important; box-shadow: 0 4px 16px rgba(20,18,31,0.06) !important; }
+          .tier-card.featured { border-color: #C8102E !important; }
+          .tier-name { color: #14121F !important; }
+          .tier-for { color: #6B6876 !important; }
+          .tier-price { color: #14121F !important; }
+          .tier-price span { color: #6B6876 !important; }
+          .tier-rev { color: #6B6876 !important; }
+          .tier-note { color: #6B6876 !important; }
+          
+          .process { background: transparent !important; color: #14121F !important; }
+          .process .section-head h2 { color: #14121F !important; }
+          .process .section-head p { color: #6B6876 !important; }
+          .process .section-head .eyebrow { background: #FBE2E4 !important; color: #C8102E !important; }
+          .process-card { background: rgba(255,255,255,0.85) !important; border: 1px solid rgba(255,255,255,0.8) !important; box-shadow: 0 4px 16px rgba(20,18,31,0.06) !important; }
+          .process-card h3 { color: #14121F !important; }
+          .process-card p { color: #6B6876 !important; }
+          .process-num { color: #C8102E !important; }
+          
+          .testimonials { background: transparent !important; }
+          .testimonials .section-head h2 { color: #14121F !important; }
+          .testimonials .section-head p { color: #6B6876 !important; }
+          .testimonials .section-head .eyebrow { background: #FBE2E4 !important; color: #C8102E !important; }
+          .testimonial-card { background: rgba(255,255,255,0.85) !important; border: 1px solid rgba(255,255,255,0.8) !important; box-shadow: 0 4px 16px rgba(20,18,31,0.06) !important; }
+          .testimonial-card p.quote { color: #14121F !important; }
+          .testimonial-name { color: #14121F !important; }
+          .testimonial-role { color: #6B6876 !important; }
+          .testimonial-quote-mark { background: #FBE2E4 !important; color: #C8102E !important; }
+          
+          .preview { background: transparent !important; color: #14121F !important; }
+          .preview .section-head h2 { color: #14121F !important; }
+          .preview .section-head p { color: #6B6876 !important; }
+          .preview .section-head .eyebrow { background: #FBE2E4 !important; color: #C8102E !important; }
+          .mock-card { background: rgba(255,255,255,0.9) !important; border: 1px solid rgba(255,255,255,0.8) !important; color: #14121F !important; box-shadow: 0 12px 32px rgba(20,18,31,0.1) !important; }
+          .mock-label { color: #6B6876 !important; }
+          .mock-price { color: #14121F !important; }
+          .mock-line { background: #E8E6F0 !important; }
+          
+          .cta { background: transparent !important; }
+          .cta h2 { color: #14121F !important; }
+          .cta p.lede { color: #6B6876 !important; }
+          .cta .eyebrow { background: #FBE2E4 !important; color: #C8102E !important; }
+          .contact-form { background: rgba(255,255,255,0.85) !important; border: 1px solid rgba(255,255,255,0.8) !important; box-shadow: 0 8px 32px rgba(20,18,31,0.06) !important; }
+          .form-field label { color: #6B6876 !important; }
+          .form-field input, .form-field textarea { background: #fff !important; border-color: #E8E6F0 !important; color: #14121F !important; }
+          .form-meta { color: #6B6876 !important; }
+          footer { background: rgba(10,9,18,0.85) !important; backdrop-filter: blur(18px) !important; -webkit-backdrop-filter: blur(18px) !important; color: #F7F6FA !important; }
+          html, body { overflow-x: hidden !important; }
+          @media (max-width: 860px) {
+            .hero {
+              min-height: 100vh !important;
+              min-height: 100dvh !important;
+              display: flex !important;
+              align-items: center !important;
+              padding-top: calc(80px + 68px) !important;
+              padding-bottom: 32px !important;
+            }
+            .hero .wrap { width: 100% !important; }
+            #ring3d { width: 100% !important; max-width: 440px !important; }
+          }
+        `;
+      }
+    };
+
+    const injectTheme = (t: string) => {
+      const iframe = iframeRef.current || (document.getElementById("v7-iframe") as HTMLIFrameElement | null);
+      if (!iframe?.contentDocument) return;
+      try {
+        const doc = iframe.contentDocument;
+        if (!doc) return;
+        let styleEl = doc.getElementById("global-header-offset") as HTMLStyleElement | null;
+        if (!styleEl) {
+          styleEl = doc.createElement("style");
+          styleEl.id = "global-header-offset";
+          doc.head.appendChild(styleEl);
+        }
+        styleEl.textContent = getThemeCSS(t);
+        doc.documentElement.setAttribute("data-theme", t);
+      } catch (e) {}
+    };
+
+    const iframe = iframeRef.current;
+    const onLoad = () => {
+      injectTheme(theme);
+      if (window.location.hash) {
+        const hash = window.location.hash.slice(1);
+        const doc = iframe?.contentDocument;
+        const el = doc?.getElementById(hash);
+        if (el) setTimeout(() => el.scrollIntoView({ behavior: "smooth" }), 100);
+      }
+    };
+
+    if (iframe) {
+      iframe.addEventListener("load", onLoad);
+      if (iframe.contentDocument?.readyState === "complete") {
+        injectTheme(theme);
+      }
+    }
+
+    const onThemeChange = (e: Event) => {
+      const custom = e as CustomEvent;
+      const newTheme = custom.detail?.theme || theme;
+      applyThemeToOuter(newTheme);
+      injectTheme(newTheme);
+    };
+    window.addEventListener("themeChange", onThemeChange as EventListener);
+
+    const onHashChange = () => {
+      const iframeEl = document.getElementById("v7-iframe") as HTMLIFrameElement | null;
+      if (!iframeEl?.contentDocument) return;
+      const hash = window.location.hash.slice(1);
+      if (!hash) return;
+      const el = iframeEl.contentDocument.getElementById(hash);
+      if (el) el.scrollIntoView({ behavior: "smooth" });
+    };
+    window.addEventListener("hashchange", onHashChange);
+
+    return () => {
+      htmlEl.style.overflow = prevHtmlOverflow;
+      htmlEl.style.height = prevHtmlHeight;
+      (htmlEl as HTMLElement).style.background = prevHtmlBg;
+      document.body.style.overflow = prevBodyOverflow;
+      document.body.style.height = prevBodyHeight;
+      document.body.style.background = prevBodyBg;
+      if (rootFooter) rootFooter.style.display = "";
+      if (iframe) iframe.removeEventListener("load", onLoad);
+      window.removeEventListener("hashchange", onHashChange);
+      window.removeEventListener("themeChange", onThemeChange as EventListener);
+    };
+  }, [theme]);
 
   return (
-    <div className={t.page}>
-      <section className="relative overflow-hidden pt-16 pb-16 lg:pt-28 lg:pb-24">
-        <div className="pointer-events-none absolute inset-0">
-          {t.isDark ? (
-            <>
-              <div className="absolute -top-[30%] left-1/2 h-[80%] w-[120%] -translate-x-1/2 rounded-full bg-[radial-gradient(ellipse_at_center,rgba(200,16,46,0.18),transparent_60%)] blur-[20px]" />
-              <div className="absolute top-[20%] right-[-10%] h-[60%] w-[50%] bg-[radial-gradient(ellipse_at_center,rgba(255,92,77,0.12),transparent_65%)] blur-[30px]" />
-            </>
-          ) : (
-            <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_20%_20%,rgba(200,16,46,0.06),transparent_50%),radial-gradient(ellipse_at_80%_80%,rgba(255,92,77,0.04),transparent_50%)]" />
-          )}
-        </div>
-        <div className="relative mx-auto max-w-[1180px] px-6 lg:px-8 grid lg:grid-cols-[1.15fr_0.85fr] gap-10 items-center">
-          <div>
-            <span className={`inline-flex items-center rounded-full border px-3.5 py-1 text-[11px] font-semibold tracking-[0.08em] uppercase ${t.chip}`}>
-              Build-and-launch platform
-            </span>
-            <h1 className="mt-5 font-display text-[36px] lg:text-[56px] font-bold leading-[0.95] tracking-[-0.03em]">
-              <span className={`block ${t.ink}`}>Your product, built by a real team.</span>
-              <span className="block text-[#C8102E]">Priced once.</span>
-            </h1>
-            <p className={`mt-5 max-w-[48ch] text-[16px] leading-[1.65] ${t.muted}`}>
-              Describe your project, get one upfront price, and our team designs, builds, and launches it for a single one-time fee. No tokens to run out of mid-build.
-            </p>
-            <div className="mt-8 flex flex-wrap items-center gap-3">
-              <PrimaryLink href="/quote">
-                Get Started <span>→</span>
-              </PrimaryLink>
-              <GhostLink href="#process">See how it works</GhostLink>
-            </div>
-            <div className={`mt-8 flex flex-wrap gap-2 text-[12px] ${t.muted}`}>
-              {["One-time build fee", "Human-in-the-loop reviews", "Hosting & backend included"].map((x) => (
-                <span key={x} className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 ${t.border}`}>
-                  <Check size={12} className="text-[#C8102E]" />
-                  {x}
-                </span>
-              ))}
-            </div>
-          </div>
-          <div className="relative hidden lg:flex items-center justify-center">
-            <div className="relative h-[400px] w-[400px]">
-              <div className={`absolute inset-0 rounded-full blur-[18px] ${t.isDark ? "bg-[radial-gradient(circle_at_50%_50%,rgba(200,16,46,0.25),transparent_70%)]" : "bg-[radial-gradient(circle_at_50%_50%,rgba(200,16,46,0.12),transparent_70%)]"}`} />
-              <ChromeSunburst />
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section className={`py-12 lg:py-16 border-y ${t.border}`}>
-        <div className="mx-auto max-w-[1180px] px-6 lg:px-8 grid md:grid-cols-3 gap-4">
-          {proofs.map((p) => (
-            <div key={p.l} className={`rounded-[20px] border p-6 ${t.card}`}>
-              <div className={`font-display text-[24px] font-bold ${t.ink}`}>{p.v}</div>
-              <div className={`mt-1 text-[14px] ${t.muted}`}>{p.l}</div>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      <section id="services" className="py-16 lg:py-24">
-        <div className="mx-auto max-w-[1180px] px-6 lg:px-8">
-          <span className={`inline-flex rounded-full px-3.5 py-1 text-[11px] font-semibold uppercase tracking-[0.04em] ${t.chip}`}>
-            What we build
-          </span>
-          <h2 className={`mt-4 font-display text-[28px] lg:text-[40px] font-semibold ${t.ink}`}>
-            Services, not a token bucket.
-          </h2>
-          <p className={`mt-3 max-w-[50ch] text-[15px] ${t.muted}`}>
-            Pick a category. We price the project from your brief. A human team ships it.
-          </p>
-          <div className="mt-10 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {services.map((s, i) => {
-              const Icon = icons[s.icon];
-              return (
-                <motion.div
-                  key={s.slug}
-                  initial={{ opacity: 0, y: 16 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true }}
-                  transition={{ duration: 0.4, delay: i * 0.05, ease: [0.22, 1, 0.36, 1] }}
-                >
-                  <Link
-                    href={`/services/${s.slug}`}
-                    className={`group flex h-full flex-col rounded-[20px] border p-6 no-underline hover:-translate-y-1 transition-all ${t.card}`}
-                  >
-                    <div className={`flex h-11 w-11 items-center justify-center rounded-[12px] ${t.iconBox}`}>
-                      <Icon size={20} />
-                    </div>
-                    <h3 className={`mt-5 text-[17px] font-semibold ${t.ink}`}>{s.title}</h3>
-                    <p className={`mt-2 text-[14px] leading-[1.55] flex-1 ${t.muted}`}>{s.short}</p>
-                    <span className="mt-5 inline-flex items-center gap-1 text-[13px] font-medium text-[#C8102E]">
-                      View service <ArrowRight size={14} />
-                    </span>
-                  </Link>
-                </motion.div>
-              );
-            })}
-          </div>
-        </div>
-      </section>
-
-      <section id="tiers" className={`py-16 lg:py-24 border-t ${t.border}`}>
-        <div className="mx-auto max-w-[1180px] px-6 lg:px-8">
-          <span className={`inline-flex rounded-full px-3.5 py-1 text-[11px] font-semibold uppercase tracking-[0.04em] ${t.chip}`}>
-            Project tiers
-          </span>
-          <h2 className={`mt-4 font-display text-[28px] lg:text-[40px] font-semibold ${t.ink}`}>
-            Pick the tier that fits your business.
-          </h2>
-          <p className={`mt-3 max-w-[54ch] text-[15px] ${t.muted}`}>
-            Your one-time build fee is computed from the project — the same math at every tier. Tiers scale recurring services and included reviews only.
-          </p>
-          <div className="mt-10 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {projectTiers.map((tier) => (
-              <div key={tier.name} className={`rounded-[20px] border p-6 ${t.card} ${tier.name === "Startup" ? "ring-1 ring-[#C8102E]/40" : ""}`}>
-                <div className="text-[12px] font-semibold uppercase tracking-[0.06em] text-[#C8102E]">{tier.name}</div>
-                <div className={`mt-2 text-[16px] font-semibold ${t.ink}`}>{tier.for}</div>
-                <ul className={`mt-4 space-y-2 text-[13px] ${t.muted}`}>
-                  <li className="flex gap-2"><Check size={14} className="mt-0.5 text-[#C8102E] shrink-0" />{tier.revisions}</li>
-                  <li className="flex gap-2"><Check size={14} className="mt-0.5 text-[#C8102E] shrink-0" />{tier.services}</li>
-                </ul>
-              </div>
-            ))}
-          </div>
-          <p className={`mt-5 text-[13px] ${t.muted}`}>Tiers upgrade anytime; they are never downgraded. We’ll suggest an upgrade as you near your limits.</p>
-        </div>
-      </section>
-
-      <section id="process" className="py-16 lg:py-24">
-        <div className="mx-auto max-w-[1180px] px-6 lg:px-8">
-          <span className={`inline-flex rounded-full px-3.5 py-1 text-[11px] font-semibold uppercase tracking-[0.04em] ${t.chip}`}>
-            How it works
-          </span>
-          <h2 className={`mt-4 font-display text-[28px] lg:text-[40px] font-semibold ${t.ink}`}>
-            Describe. Price. Build. Launch.
-          </h2>
-          <div className="mt-10 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {journey.map((step) => (
-              <div key={step.n} className={`rounded-[20px] border p-6 ${t.card}`}>
-                <div className="font-display text-[13px] font-semibold tracking-wider text-[#C8102E]">{step.n}</div>
-                <h3 className={`mt-2 text-[16px] font-semibold ${t.ink}`}>{step.t}</h3>
-                <p className={`mt-2 text-[14px] leading-[1.55] ${t.muted}`}>{step.d}</p>
-              </div>
-            ))}
-          </div>
-          <div className="mt-6 rounded-[20px] p-[1.5px]" style={{ background: "linear-gradient(135deg, #FF5C4D 0%, #C8102E 100%)" }}>
-            <div className={`rounded-[18.5px] p-6 lg:p-8 ${t.surface}`}>
-              <h3 className={`font-display text-[20px] font-semibold ${t.ink}`}>No tokens. No metering.</h3>
-              <p className={`mt-2 max-w-[72ch] text-[14px] leading-[1.65] ${t.muted}`}>
-                Other build tools give you a bucket of tokens that can run out before your project ships. TechRepubliQ charges one development fee to finish the build as scoped. Tokens apply only to optional AI add-ons after launch — never the core build.
-              </p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section className={`py-16 lg:py-24 border-t ${t.border}`}>
-        <div className="mx-auto max-w-[1180px] px-6 lg:px-8">
-          <h2 className={`font-display text-[28px] lg:text-[40px] font-semibold ${t.ink}`}>Teams who shipped.</h2>
-          <div className="mt-10 grid grid-cols-1 md:grid-cols-3 gap-4">
-            {quotes.map((item) => (
-              <div key={item.n} className={`rounded-[20px] border p-6 ${t.card}`}>
-                <p className={`text-[15px] leading-[1.6] ${t.ink}`}>“{item.q}”</p>
-                <p className={`mt-5 text-[13px] font-semibold ${t.ink}`}>{item.n}</p>
-                <p className={`text-[12px] ${t.muted}`}>{item.r}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <section id="preview" className="py-16 lg:py-24">
-        <div className="mx-auto max-w-[1180px] px-6 lg:px-8">
-          <h2 className={`font-display text-[28px] lg:text-[40px] font-semibold ${t.ink}`}>
-            Preview on us. Go live on you.
-          </h2>
-          <p className={`mt-3 max-w-[50ch] text-[15px] ${t.muted}`}>
-            Every project in preview gets a TechRepubliQ subdomain — shareable, no watermark. Publish moves it to your domain. Hosting and backend stay with us.
-          </p>
-          <div className={`mt-8 rounded-[20px] border p-6 lg:p-10 ${t.card}`}>
-            <div className="text-[12px] uppercase tracking-wider text-[#C8102E]">Preview</div>
-            <div className={`mt-2 font-display text-[22px] ${t.ink}`}>your-project.techrepubliq.app</div>
-            <div className={`mt-6 h-2 w-24 rounded-full bg-[#C8102E]`} />
-            <div className="mt-6 grid gap-2">
-              {[72, 54, 88].map((w) => (
-                <div key={w} className={`h-3 rounded-full ${t.isDark ? "bg-[#242233]" : "bg-[#E8E6F0]"}`} style={{ width: `${w}%` }} />
-              ))}
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section id="quote" className="pb-16 lg:pb-24">
-        <div className="mx-auto max-w-[1180px] px-6 lg:px-8">
-          <div className={`relative overflow-hidden rounded-[20px] border ${t.card}`}>
-            <div className={`pointer-events-none absolute inset-0 ${t.isDark ? "bg-[radial-gradient(ellipse_at_10%_50%,rgba(200,16,46,0.15),transparent_50%)]" : "bg-[radial-gradient(ellipse_at_10%_50%,rgba(200,16,46,0.08),transparent_50%)]"}`} />
-            <div className="relative p-8 lg:p-10 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
-              <div>
-                <h2 className={`font-display text-[24px] lg:text-[32px] font-semibold ${t.ink}`}>
-                  Ready to build? <span className="text-[#C8102E]">Get started.</span>
-                </h2>
-                <p className={`mt-3 max-w-[42ch] text-[14px] ${t.muted}`}>
-                  Describe the project. Get one upfront price. We design, build, and launch it.
-                </p>
-              </div>
-              <PrimaryLink href="/quote">
-                Get Started <span>→</span>
-              </PrimaryLink>
-            </div>
-          </div>
-        </div>
-      </section>
-    </div>
+    <>
+      <style>{`
+        main { padding-top: 0 !important; min-height: 0 !important; margin: 0 !important; overflow: hidden !important; height: 100vh !important; }
+        html, body { margin: 0; padding: 0; overflow: hidden !important; height: 100% !important; }
+        html[data-theme="dark"] body, html.dark body { background: #0A0912 !important; }
+        html[data-theme="light"] body, html.light body { background: #F6F5F9 !important; }
+        html[data-theme="dark"] main { background: #0A0912 !important; }
+        html[data-theme="light"] main { background: #F6F5F9 !important; }
+        #v7-iframe { width: 100%; height: 100vh; border: none; display: block; overflow: auto; }
+        body::-webkit-scrollbar { display: none; }
+      `}</style>
+      <iframe
+        ref={iframeRef}
+        id="v7-iframe"
+        src="/TechRepubliQ-preview_v7.html"
+        title="TechRepubliQ v7"
+        loading="eager"
+      />
+    </>
   );
 }
