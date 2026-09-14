@@ -7,7 +7,7 @@ export function cn(...inputs: ClassValue[]) {
 
 export const siteConfig = {
   name: "TechRepubliQ",
-  tagline: "Describe it. Get a quote. We build it.",
+  tagline: "Your product, built by a real team. Priced once.",
   email: "hello@techrepubliq.com",
   copyright: `© ${new Date().getFullYear()} TechRepubliQ. All rights reserved.`,
 };
@@ -68,27 +68,27 @@ export const services = [
     ],
   },
   {
-    slug: "web-ui-design",
-    title: "Web / UI Design",
+    slug: "training",
+    title: "Training",
     description:
-      "User interface and experience design for web and mobile applications, from wireframes to high-fidelity prototypes.",
+      "Hands-on enablement for your team — how to run, maintain, and extend the product we build, in plain language.",
     startingPrice: 1500,
     features: [
-      "User research & wireframing",
-      "Interactive prototyping",
-      "Design system creation",
-      "Responsive layout design",
-      "Accessibility-first approach",
-      "Developer handoff files",
+      "Role-based sessions (admin, ops, support)",
+      "Recorded walkthroughs of your product",
+      "Runbooks for everyday operations",
+      "Handover of dashboards and analytics",
+      "Q&A session after go-live",
+      "Optional refresher sessions",
     ],
     faq: [
       {
-        q: "Do you handle both UX and UI?",
-        a: "Yes. We cover the full spectrum from user flows and wireframing to polished visual design and prototyping.",
+        q: "Who is the training for?",
+        a: "Anyone on your team who runs the product day to day — admins, operations, support, or marketing. Sessions are split by role.",
       },
       {
-        q: "Can I get just the design without development?",
-        a: "Absolutely. We deliver Figma files, design systems, and prototypes ready for handoff to your development team.",
+        q: "Do we get materials to keep?",
+        a: "Yes. Recordings and runbooks stay with you, and they cover your product specifically — not generic material.",
       },
     ],
   },
@@ -144,7 +144,7 @@ export const services = [
   },
   {
     slug: "optimization",
-    title: "AI / Web Performance Optimization",
+    title: "Optimization",
     description:
       "Speed up your website, reduce infrastructure costs, and improve user experience through performance auditing and optimization.",
     startingPrice: 1000,
@@ -167,6 +167,38 @@ export const services = [
       },
     ],
   },
+  {
+    slug: "web-app-management",
+    title: "Web / App Management",
+    description:
+      "Ongoing care for a live product — monitoring, updates, backups, and a monthly allowance of edits handled by our team.",
+    startingPrice: 500,
+    features: [
+      "Uptime & error monitoring",
+      "Security and dependency updates",
+      "Scheduled backups",
+      "Monthly edit allowance",
+      "Performance reporting",
+      "Add-on and renewal handling",
+    ],
+    faq: [
+      {
+        q: "Is this a retainer?",
+        a: "It is a monthly plan tied to your project. It covers monitoring, updates, and an allowance of edits each month.",
+      },
+      {
+        q: "Can you manage a product you did not build?",
+        a: "Sometimes. We review the codebase first and tell you honestly whether we can take it on safely.",
+      },
+    ],
+  },
 ];
+
+export const projectTiers = [
+  { name: "MVP", for: "Solo builders & small teams", services: "$5/mo", revisions: "3 pre-launch reviews" },
+  { name: "Startup", for: "Funded startups shipping fast", services: "$25/mo", revisions: "5 pre-launch reviews" },
+  { name: "Business", for: "Established businesses", services: "$50/mo", revisions: "10 pre-launch reviews" },
+  { name: "Enterprise", for: "Large organizations", services: "Contact Sales", revisions: "Unlimited pre-launch reviews" },
+] as const;
 
 export const orderStatuses = ["Paid", "In Progress", "Delivered"] as const;

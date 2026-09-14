@@ -4,10 +4,11 @@ import type { Env } from "../index";
 const services = [
   { slug: "web-development", title: "Web Development", basePriceCents: 250000 },
   { slug: "app-development", title: "App Development", basePriceCents: 500000 },
-  { slug: "web-ui-design", title: "Web / UI Design", basePriceCents: 150000 },
+  { slug: "training", title: "Training", basePriceCents: 150000 },
   { slug: "ai-automation", title: "AI Automation", basePriceCents: 300000 },
   { slug: "ai-integration", title: "AI Integration", basePriceCents: 200000 },
-  { slug: "optimization", title: "AI / Web Performance Optimization", basePriceCents: 100000 },
+  { slug: "optimization", title: "Optimization", basePriceCents: 100000 },
+  { slug: "web-app-management", title: "Web / App Management", basePriceCents: 50000 },
 ];
 
 export const quotes = {

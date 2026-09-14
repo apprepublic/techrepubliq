@@ -111,6 +111,13 @@
   .hero-dots span:nth-child(3){ background:#22C55E; } .hero-dots span:nth-child(4){ background:#4A86E8; }
   .hero h1 { margin-bottom: 20px; }
   .hero p.lede { margin-bottom: 32px; color: var(--text-on-dark-secondary); }
+  .hero-cta { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-bottom: 20px; }
+  .hero-trust { display: flex; gap: 8px; flex-wrap: wrap; }
+  .hero-trust span {
+    font-size: 12px; color: var(--text-on-dark-secondary);
+    border: 1px solid var(--border-dark); border-radius: var(--radius-pill);
+    padding: 5px 12px; white-space: nowrap;
+  }
   .hero-ring-wrap { position: relative; z-index: 2; display: flex; align-items: center; justify-content: center; gap: 28px; min-height: 460px; }
   .hero-copy { position: relative; z-index: 2; }
   .scroll-cue {
@@ -192,6 +199,7 @@
   }
   .stat-card.featured { background: var(--gradient-accent); border-color: transparent; }
   .stat-value { font-family: var(--font-display); font-size: 40px; font-weight: 700; line-height: 1; margin-bottom: 8px; font-variant-numeric: tabular-nums; }
+  .stat-value.soft { font-size: 26px; line-height: 1.25; }
   .stat-label { color: var(--text-on-dark-secondary); font-size: 15px; }
   .stat-card.featured .stat-label { color: rgba(255,255,255,0.85); }
   .stat-badge {
@@ -217,7 +225,7 @@
     position: relative; z-index: 2; margin-top: 48px;
     background: transparent;
   }
-  .service-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; }
+  .service-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
   .service-card {
     background: rgba(255,255,255,0.55); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border: 1px solid rgba(255,255,255,0.4); border-radius: var(--radius-card);
     padding: 32px; box-shadow: var(--shadow-card); transition: transform 150ms var(--ease), box-shadow 150ms var(--ease);
@@ -237,6 +245,35 @@
   @media (max-width: 640px) { .service-grid { grid-template-columns: 1fr; } }
   .service-icon.small { width: 40px; height: 40px; }
 
+  .tiers {
+    position: relative; z-index: 2; margin-top: 48px;
+    background: transparent;
+  }
+  .tier-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; }
+  .tier-card {
+    background: rgba(255,255,255,0.55); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border: 1px solid rgba(255,255,255,0.4); border-radius: var(--radius-card);
+    padding: 32px; box-shadow: var(--shadow-card); transition: transform 150ms var(--ease), box-shadow 150ms var(--ease);
+    display: flex; flex-direction: column; opacity: 0; transform: translateY(24px);
+  }
+  .tier-card.in-view { opacity: 1; transform: translateY(0); transition: opacity 500ms var(--ease), transform 500ms var(--ease); }
+  .tier-card:hover { transform: translateY(-4px); box-shadow: 0 4px 8px rgba(20,18,31,0.06), 0 16px 32px rgba(20,18,31,0.1); }
+  .tier-card.featured { border: 1px solid var(--accent); box-shadow: 0 8px 32px rgba(200,16,46,0.14); }
+  .tier-badge {
+    position: absolute; top: 16px; right: 16px;
+    background: var(--gradient-accent); color: #fff;
+    font-size: 11px; font-weight: 600; padding: 4px 10px; border-radius: var(--radius-pill);
+  }
+  .tier-name { font-family: var(--font-display); font-size: 20px; font-weight: 600; margin-bottom: 4px; }
+  .tier-for { color: var(--text-secondary); font-size: 13.5px; margin-bottom: 16px; line-height: 1.45; }
+  .tier-price { font-family: var(--font-display); font-size: 28px; font-weight: 700; line-height: 1.1; }
+  .tier-price.contact { font-size: 20px; }
+  .tier-price span { font-size: 13px; font-weight: 500; color: var(--text-secondary); }
+  .tier-rev { font-size: 13.5px; color: var(--text-secondary); margin: 10px 0 16px; }
+  .tier-card .service-link { margin-top: auto; }
+  .tier-note { margin-top: 24px; text-align: center; font-size: 13.5px; color: var(--text-secondary); }
+  @media (max-width: 1024px) { .tier-grid { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 640px) { .tier-grid { grid-template-columns: 1fr; } }
+
   .process {
     position: relative; z-index: 2; color: var(--text-primary); margin-top: 48px;
     background: transparent;
@@ -251,6 +288,20 @@
   .process-card.in-view { opacity: 1; transform: translateY(0); transition: opacity 500ms var(--ease), transform 500ms var(--ease); }
   .process-num { font-family: var(--font-display); font-size: 13px; font-weight: 700; color: rgba(255,255,255,0.6); margin-bottom: 24px; }
   .process-card h3 { color: #fff; }
+  .process-card p { color: var(--text-on-dark-secondary); font-size: 13.5px; line-height: 1.5; margin-top: 8px; }
+  .process-contrast {
+    margin-top: 24px;
+    background: var(--gradient-accent);
+    border-radius: var(--radius-card);
+    padding: 40px;
+    color: #fff;
+    display: flex; align-items: center; justify-content: space-between; gap: 32px; flex-wrap: wrap;
+  }
+  .process-contrast h3 { font-family: var(--font-display); font-size: 26px; font-weight: 600; margin-bottom: 8px; }
+  .process-contrast p { color: rgba(255,255,255,0.92); font-size: 15px; line-height: 1.6; max-width: 72ch; }
+  .process-contrast .btn-primary { background: #fff; color: var(--accent); box-shadow: none; }
+  .process-contrast .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 12px 28px rgba(0,0,0,0.18); }
+  @media (max-width: 700px) { .process-contrast { padding: 28px; } }
   @media (max-width: 860px) { .process-grid { grid-template-columns: repeat(2, 1fr); } }
   @media (max-width: 560px) { .process-grid { grid-template-columns: 1fr; } }
 
@@ -310,6 +361,7 @@
   .cta-grid { display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 56px; align-items: start; }
   .cta h2 { margin-bottom: 16px; }
   .cta p.lede { margin-bottom: 32px; }
+  .cta-actions { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-top: 8px; }
   .cta-copy { padding-top: 12px; }
   .contact-form {
     background: rgba(255,255,255,0.62); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);
@@ -383,7 +435,7 @@
     </nav>
     <div class="nav-cta">
       <a href="/login" class="nav-login">Log in</a>
-      <a href="#quote" class="btn btn-primary">Get started</a>
+      <a href="/quote" class="btn btn-primary" target="_top">Get Started</a>
       <button class="nav-toggle" aria-label="Open menu">&#9776;</button>
     </div>
   </div>
@@ -395,9 +447,17 @@
     <div class="wrap">
       <div class="hero-copy">
         <div class="hero-dots" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
-        <h1>Building tomorrow's software, <span class="accent-text">today.</span></h1>
-        <p class="lede">Designe, engineer, and ship from first sketch to a live, working product.</p>
-        <a href="#quote" class="btn btn-primary">Get started</a>
+        <h1>Your product, built by a real team. <span class="accent-text">Priced once.</span></h1>
+        <p class="lede">Describe your project, get one upfront price, and our team designs, builds, and launches it — one one-time build fee, no tokens to run out of mid-build.</p>
+        <div class="hero-cta">
+          <a href="/quote" class="btn btn-primary" target="_top">Get Started</a>
+          <a href="#process" class="btn btn-ghost-dark">See how it works</a>
+        </div>
+        <div class="hero-trust">
+          <span>One-time build fee</span>
+          <span>Human-in-the-loop reviews</span>
+          <span>Hosting &amp; backend included</span>
+        </div>
       </div>
       <div class="hero-ring-wrap">
         <div id="ring3d"></div>
@@ -413,13 +473,13 @@
   <section class="panel-section">
     <div class="wrap panel-grid">
       <div class="panel-hero-card">
-        <h2 class="stacked-words"><span>Design.</span><span>Develop.</span><span>Deploy.</span></h2>
+        <h2 class="stacked-words"><span>Describe.</span><span>Get Priced.</span><span>Launch.</span></h2>
       </div>
       <div class="stat-stack">
         <div class="stat-top-row">
           <div class="info-box">
-            <h3>Builds</h3>
-            <p>Modern, scalable software that brings your roadmap to life.</p>
+            <h3>Human-in-the-loop</h3>
+            <p>A real team designs, builds, and launches your product — with review rounds before it goes live.</p>
             <div class="info-icons" aria-hidden="true">
               <span><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 0 20 15.3 15.3 0 0 1 0-20z"/></svg></span>
               <span><svg viewBox="0 0 24 24"><rect x="7" y="2" width="10" height="20" rx="2"/><line x1="11" y1="18" x2="13" y2="18"/></svg></span>
@@ -427,18 +487,18 @@
             </div>
           </div>
           <div class="stat-card featured">
-            <div class="stat-value"><span data-count="500" data-suffix="+">0+</span></div>
-            <div class="stat-label">Projects</div>
-            <a href="#preview" class="stat-cta">Explore Work &rarr;</a>
+            <div class="stat-value"><span data-count="4" data-suffix="">4</span></div>
+            <div class="stat-label">Project tiers — MVP to Enterprise</div>
+            <a href="/quote" class="stat-cta" target="_top">Get Started &rarr;</a>
           </div>
         </div>
         <div class="stat-card">
-          <div class="stat-value"><span data-count="15" data-suffix="+">0+</span></div>
-          <div class="stat-label">Years of Experience</div>
+          <div class="stat-value soft">Unlimited</div>
+          <div class="stat-label">Enterprise pre-launch reviews</div>
         </div>
         <div class="stat-card">
-          <div class="stat-value"><span data-count="1" data-suffix="M+">0M+</span></div>
-          <div class="stat-label">Coding Hours</div>
+          <div class="stat-value"><span data-count="7" data-suffix="">7</span></div>
+          <div class="stat-label">Day grace period on renewals</div>
         </div>
       </div>
     </div>
@@ -449,9 +509,52 @@
     <div class="wrap">
       <div class="section-head" style="margin-left:auto;margin-right:auto;text-align:center;max-width:720px;">
         <span class="eyebrow">What We Do</span>
-        <h2>With TechRepubliQ, you build better. Always. It's our guarantee.</h2>
+        <h2>From first sketch to a live, working product.</h2>
       </div>
       <div class="service-grid" id="serviceGrid"></div>
+    </div>
+  </section>
+
+  <!-- TIERS -->
+  <section class="tiers" id="tiers">
+    <div class="wrap">
+      <div class="section-head" style="margin-left:auto;margin-right:auto;text-align:center;max-width:720px;">
+        <span class="eyebrow">Project Tiers</span>
+        <h2>Pick the tier that fits your business.</h2>
+        <p style="margin:0 auto;max-width:60ch;">Your one-time build fee is computed from your project — the same math at every tier. Tiers scale your recurring services only.</p>
+      </div>
+      <div class="tier-grid">
+        <div class="tier-card">
+          <div class="tier-name">MVP</div>
+          <div class="tier-for">For solo builders &amp; small teams</div>
+          <div class="tier-price">$5<span>/mo services</span></div>
+          <div class="tier-rev">3 pre-launch reviews</div>
+          <a href="/quote?tier=mvp" class="service-link" target="_top">Get Started &rarr;</a>
+        </div>
+        <div class="tier-card featured">
+          <div class="tier-badge">Most popular</div>
+          <div class="tier-name">Startup</div>
+          <div class="tier-for">For funded startups shipping fast</div>
+          <div class="tier-price">$25<span>/mo services</span></div>
+          <div class="tier-rev">5 pre-launch reviews</div>
+          <a href="/quote?tier=startup" class="service-link" target="_top">Get Started &rarr;</a>
+        </div>
+        <div class="tier-card">
+          <div class="tier-name">Business</div>
+          <div class="tier-for">For established businesses</div>
+          <div class="tier-price">$50<span>/mo services</span></div>
+          <div class="tier-rev">10 pre-launch reviews</div>
+          <a href="/quote?tier=business" class="service-link" target="_top">Get Started &rarr;</a>
+        </div>
+        <div class="tier-card">
+          <div class="tier-name">Enterprise</div>
+          <div class="tier-for">For large organizations</div>
+          <div class="tier-price contact">Contact Sales</div>
+          <div class="tier-rev">Unlimited pre-launch reviews</div>
+          <a href="/quote?tier=enterprise" class="service-link" target="_top">Talk to us &rarr;</a>
+        </div>
+      </div>
+      <p class="tier-note">Tiers can be upgraded anytime, never downgraded — we'll suggest an upgrade as you near your limits.</p>
     </div>
   </section>
 
@@ -459,17 +562,24 @@
   <section class="process" id="process">
     <div class="wrap">
       <div class="section-head">
-        <span class="eyebrow">How We Work</span>
-        <h2>Our Agile Process</h2>
-        <p>We follow an agile approach, ensuring flexibility, transparency, and continuous delivery.</p>
+        <span class="eyebrow">How It Works</span>
+        <h2>From brief to launch</h2>
+        <p>One flow from idea to a live product — describe it, get one price, and we build and launch it.</p>
       </div>
       <div class="process-grid">
-        <div class="process-card"><div class="process-num">01</div><h3>Planning</h3></div>
-        <div class="process-card"><div class="process-num">02</div><h3>Defining the User Experience</h3></div>
-        <div class="process-card"><div class="process-num">03</div><h3>The Technical Foundation</h3></div>
-        <div class="process-card"><div class="process-num">04</div><h3>Implementation</h3></div>
-        <div class="process-card"><div class="process-num">05</div><h3>Repeat the Cycle</h3></div>
-        <div class="process-card"><div class="process-num">06</div><h3>The Launch</h3></div>
+        <div class="process-card"><div class="process-num">01</div><h3>Get Started</h3><p>Pick a project category — web, app, AI, or training.</p></div>
+        <div class="process-card"><div class="process-num">02</div><h3>Pick your tier</h3><p>MVP, Startup, Business, or Enterprise.</p></div>
+        <div class="process-card"><div class="process-num">03</div><h3>Send your brief</h3><p>Logo, brief, and whatever assets the project needs.</p></div>
+        <div class="process-card"><div class="process-num">04</div><h3>Get Priced</h3><p>One final total — no line-item surprises at checkout.</p></div>
+        <div class="process-card"><div class="process-num">05</div><h3>We build</h3><p>With human review rounds before you go live.</p></div>
+        <div class="process-card"><div class="process-num">06</div><h3>Launch &amp; manage</h3><p>Dashboard, add-ons, analytics, and support.</p></div>
+      </div>
+      <div class="process-contrast">
+        <div>
+          <h3>No tokens. No metering.</h3>
+          <p>Other build tools hand you a bucket of tokens that can run out before your project ships. TechRepubliQ charges one development fee to finish the build as scoped — tokens apply only to optional AI add-ons after launch, never the core build.</p>
+        </div>
+        <a href="/quote" class="btn btn-primary" target="_top">Get Started</a>
       </div>
     </div>
   </section>
@@ -523,14 +633,12 @@
   <section class="cta" id="quote">
     <div class="wrap cta-grid">
       <div class="cta-copy">
-        <span class="eyebrow">Contact</span>
-        <h2>Connect with us</h2>
-        <p class="lede">Having helped clients across industries build, launch, and scale their software, we'd love to do the same for you. Tell us what you're building and let's talk it through.</p>
-        <div style="margin-top: 24px; display: flex; flex-direction: column; gap: 12px;">
-          <div style="display: flex; align-items: center; gap: 10px; color: var(--text-secondary); font-size: 14px;">
-            <span style="width: 32px; height: 32px; border-radius: 50%; background: var(--accent-dim); display: flex; align-items: center; justify-content: center; font-size: 14px;">✉</span>
-            hello@techrepubliq.com
-          </div>
+        <span class="eyebrow">Get Started</span>
+        <h2>Ready to build? Get started.</h2>
+        <p class="lede">Describe your project, get one upfront price, and our team designs, builds, and launches it. Prefer to talk first? Send us a note — we reply within 24 hours.</p>
+        <div class="cta-actions">
+          <a href="/quote" class="btn btn-primary" target="_top">Get Started</a>
+          <a href="mailto:hello@techrepubliq.com" class="btn btn-ghost-light">hello@techrepubliq.com</a>
         </div>
       </div>
       <form class="contact-form" id="contactForm" onsubmit="return handleContactSubmit(event)">
@@ -564,7 +672,7 @@
     <div class="footer-top">
       <div class="footer-brand">
         <a href="#top" class="logo"><img src="/assets/logo-black-bg.png" alt="TechRepubliQ" class="logo-img" /></a>
-        <p>Building future-ready software — web, app, and AI automation work, one project at a time.</p>
+        <p>Your product, built by a real team. Priced once. Hosting and backend included.</p>
         <div class="footer-social">
           <a href="#" aria-label="TechRepubliQ on X">𝕏</a>
           <a href="#" aria-label="TechRepubliQ on LinkedIn">in</a>
@@ -574,26 +682,28 @@
         <h4>Company</h4>
         <ul>
           <li><a href="#process">How it works</a></li>
-          <li><a href="#terms">Terms &amp; Conditions</a></li>
-          <li><a href="#pricing">Privacy Policy</a></li>
+          <li><a href="/terms" target="_top">Terms &amp; Conditions</a></li>
+          <li><a href="/terms" target="_top">Privacy Policy</a></li>
         </ul>
       </div>
       <div class="footer-col">
         <h4>Services</h4>
         <ul>
-          <li><a href="#services">Web Development</a></li>
-          <li><a href="#services">App Development</a></li>
-          <li><a href="#services">AI Automation</a></li>
-          <li><a href="#services">AI Integration</a></li>
+          <li><a href="/services/web-development" target="_top">Web Development</a></li>
+          <li><a href="/services/app-development" target="_top">App Development</a></li>
+          <li><a href="/services/ai-automation" target="_top">AI Automation</a></li>
+          <li><a href="/services/ai-integration" target="_top">AI Integration</a></li>
+          <li><a href="/services/training" target="_top">Training</a></li>
+          <li><a href="/services/web-app-management" target="_top">Web / App Management</a></li>
         </ul>
       </div>
       <div class="footer-col">
         <h4>Resources</h4>
         <ul>
-          <li><a href="#services">Blog</a></li>
-          <li><a href="#top">Case Studies</a></li>
-          <li><a href="#top">FAQ</a></li>
-          <li><a href="#login">Log in</a></li>
+          <li><a href="#testimonials">Testimonials</a></li>
+          <li><a href="#preview">Case Studies</a></li>
+          <li><a href="/pricing" target="_top">FAQ</a></li>
+          <li><a href="/login" target="_top">Log in</a></li>
         </ul>
       </div>
       <div class="footer-col">
@@ -614,10 +724,13 @@
 
 <script>
   const SERVICES = [
-    { title: "Software Development", desc: "Web and mobile products engineered end-to-end, from first sketch to launch.", icon: "layers" },
-    { title: "Product Engineering", desc: "Robust, scalable products built with modern stacks and solid engineering practice.", icon: "cpu" },
-    { title: "Startup Services", desc: "From idea to launch, we help startups build, grow, and scale with expert support.", icon: "rocket" },
-    { title: "Technology Consulting", desc: "Strategic guidance to help you make the right technical calls and stay ahead.", icon: "compass" },
+    { title: "Web Development", desc: "Marketing sites to full web apps — designed, built, launched, and hosted by us.", icon: "globe", href: "/quote?category=web-development" },
+    { title: "App Development", desc: "iOS and Android apps, with downloadable builds and app-store deployment.", icon: "smartphone", href: "/quote?category=app-development" },
+    { title: "AI Automation", desc: "Automations that take repetitive work off your team and keep running.", icon: "bot", href: "/quote?category=ai-automation" },
+    { title: "AI Integration", desc: "Chatbots, agents, and AI wired directly into your product and data.", icon: "sparkles", href: "/quote?category=ai-integration" },
+    { title: "Training", desc: "Hands-on enablement so your team can run what we build.", icon: "graduation", href: "/quote?category=training" },
+    { title: "Optimization", desc: "Performance, SEO, and speed tuning for products already live.", icon: "gauge", href: "/quote?category=optimization" },
+    { title: "Web / App Management", desc: "Ongoing care for a live product — monitoring, updates, backups, and edits.", icon: "wrench", href: "/quote?category=web-app-management" },
   ];
 
   const TESTIMONIALS = [
@@ -650,10 +763,13 @@
   }
 
   const ICON_PATHS = {
-    layers: '<polygon points="12 2 2 7 12 12 22 7 12 2" /><polyline points="2 17 12 22 22 17" /><polyline points="2 12 12 17 22 12" />',
-    cpu: '<rect x="3" y="11" width="18" height="10" rx="2" /><circle cx="12" cy="5" r="2" /><line x1="12" y1="7" x2="12" y2="11" />',
-    rocket: '<path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="M12 15l-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/><path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/>',
-    compass: '<circle cx="12" cy="12" r="10" /><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76" />',
+    globe: '<circle cx="12" cy="12" r="10" /><path d="M2 12h20" /><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />',
+    smartphone: '<rect x="7" y="2" width="10" height="20" rx="2" /><line x1="11" y1="18" x2="13" y2="18" />',
+    bot: '<rect x="4" y="8" width="16" height="12" rx="2" /><circle cx="9" cy="14" r="1" /><circle cx="15" cy="14" r="1" /><line x1="12" y1="4" x2="12" y2="8" /><circle cx="12" cy="3" r="1" />',
+    sparkles: '<path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9L12 3z" /><path d="M19 15l.9 2.4L22 18l-2.1.9L19 21l-.9-2.1L16 18l2.1-.6L19 15z" />',
+    graduation: '<path d="M22 10L12 5 2 10l10 5 10-5z" /><path d="M6 12v5c0 1.7 2.7 3 6 3s6-1.3 6-3v-5" /><line x1="22" y1="10" x2="22" y2="15" />',
+    gauge: '<path d="M12 14l4-4" /><path d="M3.34 19a10 10 0 1 1 17.32 0" />',
+    wrench: '<path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" />',
   };
 
   const grid = document.getElementById('serviceGrid');
@@ -664,6 +780,7 @@
       <div class="service-icon"><svg viewBox="0 0 24 24">${ICON_PATHS[s.icon]}</svg></div>
       <h3>${s.title}</h3>
       <p>${s.desc}</p>
+      <a class="service-link" href="${s.href}" target="_top">Get Started &rarr;</a>
     `;
     grid.appendChild(card);
   });
@@ -1158,6 +1275,7 @@ f 188 185 189 192
     items.forEach(i => obs.observe(i));
   }
   staggerIn('.service-card', 80);
+  staggerIn('.tier-card', 80);
   staggerIn('.testimonial-card', 100);
 
   // Process cards: two-row stagger
