@@ -471,7 +471,7 @@ Rules
 | PR | Content | Depends | Risk |
 |---|---|---|---|
 | **1** | WP1 landing (frontend only) | — | Low; constraints verified by md5 | ✅ **Landed — `9acc338`** (hero, panel text, 7 categories, tiers section, journey + "No tokens" band, CTA, footer/nav; both md5 fingerprints unchanged; `tsc` + `next build` clean) |
-| **2** | WP0 model + heuristic engine + WP2 services IA + WP8 | — | Low–medium (slug change) |
+| **2** | WP0 model + heuristic engine + WP2 services IA + WP8 | — | Low–medium (slug change) | ✅ **Landed — `7291e85`** (`src/lib/product.ts` + `PricingEngine` seam + heuristic; server mirror in `workers/api/src/lib/pricing.ts` with `scripts/check-pricing-mirror.mjs` drift guard; `/services` index, 7 detail pages, retired-slug page; "Request a Quote" retired. One open item: fee calibration, §17.1) |
 | **3** | WP3 quote/intake + uploads + enterprise form | WP0, WP2 | Medium |
 | **4** | WP4 payments: provider interface, PayPal rail, FX fix, invoices, signature verification | WP3 | Medium (money path) |
 | **5** | WP5 dashboard + project tabs (Preview/Services/Database) | WP0, DB | Medium–high |
