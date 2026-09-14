@@ -395,7 +395,7 @@ workers/api/src/payments/resolve.ts  resolveProvider(country, currency)
 
 | PR | Content | Depends | Risk |
 |---|---|---|---|
-| **1** | WP1 landing (frontend only) | — | Low; constraints verified by md5 |
+| **1** | WP1 landing (frontend only) | — | Low; constraints verified by md5 | ✅ **Landed — `9acc338`** (hero, panel text, 7 categories, tiers section, journey + "No tokens" band, CTA, footer/nav; both md5 fingerprints unchanged; `tsc` + `next build` clean) |
 | **2** | WP0 model + heuristic engine + WP2 services IA + WP8 | — | Low–medium (slug change) |
 | **3** | WP3 quote/intake + uploads + enterprise form | WP0, WP2 | Medium |
 | **4** | WP4 payments: provider interface, PayPal rail, FX fix, invoices, signature verification | WP3 | Medium (money path) |
