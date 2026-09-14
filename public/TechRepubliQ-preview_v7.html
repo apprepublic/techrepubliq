@@ -416,17 +416,8 @@
 
   .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0,0,0,0); }
 </style>
-<!-- three.js is vendored (public/vendor/three, r186) so the hero's 3D object
-     renders with no CDN and no network access. The import map lets the module
-     specifiers below resolve the same way the npm build resolves them. -->
-<script type="importmap">
-{
-  "imports": {
-    "three": "/vendor/three/three.module.js",
-    "three/addons/": "/vendor/three/addons/"
-  }
-}
-</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/OBJLoader.js"></script>
 </head>
 <body>
 
@@ -590,40 +581,6 @@
           <p>Other build tools hand you a bucket of tokens that can run out before your project ships. TechRepubliQ charges one development fee to finish the build as scoped — tokens apply only to optional AI add-ons after launch, never the core build.</p>
         </div>
         <a href="/quote" class="btn btn-primary" target="_top">Get Started</a>
-      </div>
-    </div>
-  </section>
-
-  <!-- AFTER LAUNCH — reuses the .services / .service-grid / .service-card classes on
-       purpose: they are already themed by the dark/light CSS that src/app/page.tsx
-       injects into this iframe, and staggerIn('.service-card') picks the cards up,
-       so this section animates and re-skins itself like the ones above it. -->
-  <section class="services">
-    <div class="wrap">
-      <div class="section-head" style="margin-left:auto;margin-right:auto;text-align:center;max-width:720px;">
-        <span class="eyebrow">After Launch</span>
-        <h2>Launch is the start, not the handoff.</h2>
-        <p style="margin:0 auto;max-width:60ch;">The build fee gets you live. Your tier is what keeps you running — hosted, measured, and edited by the same team that built it.</p>
-      </div>
-      <div class="service-grid">
-        <div class="service-card">
-          <div class="service-icon"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg></div>
-          <h3>Project dashboard</h3>
-          <p>Brief, preview link, review rounds, invoices, and every handoff — one place, from quote to live.</p>
-          <a class="service-link" href="/dashboard" target="_top">Open dashboard &rarr;</a>
-        </div>
-        <div class="service-card">
-          <div class="service-icon"><svg viewBox="0 0 24 24"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/></svg></div>
-          <h3>Hosting &amp; maintenance</h3>
-          <p>Your product runs on our infrastructure. Deploys, SSL, backups, and monitoring are always included.</p>
-          <a class="service-link" href="/services" target="_top">See services &rarr;</a>
-        </div>
-        <div class="service-card">
-          <div class="service-icon"><svg viewBox="0 0 24 24"><path d="M12 14l4-4"/><path d="M3.34 19a10 10 0 1 1 17.32 0"/></svg></div>
-          <h3>Edits &amp; analytics</h3>
-          <p>Ask for changes, watch usage and speed, and keep shipping — no re-scope, no new contract.</p>
-          <a class="service-link" href="/quote" target="_top">Get started &rarr;</a>
-        </div>
       </div>
     </div>
   </section>
@@ -835,9 +792,7 @@
   window.addEventListener('scroll', onScroll, { passive: true });
   onScroll();
 
-  // Fallback geometry only: the ring now loads the real OBJ model from
-  // /assets/red_3d_sunburst.obj (see RING3D_MODEL_URL below). If that fetch ever
-  // fails, this inline 24-blade sunburst keeps the hero from going blank.
+  // Hero object: 3D chrome sunburst (replaces the old flat SVG ring)
   const CHROME_SUNBURST_OBJ = `# Chrome sunburst - 24 extruded radial blades, hollow center
 mtllib chrome_sunburst.mtl
 o chrome_sunburst
@@ -1180,40 +1135,23 @@ f 187 188 192 191
 f 188 185 189 192
 `;
 
-  const RING3D_MODEL_URL = '/assets/red_3d_sunburst.obj';
+  // Manually build the material from the .mtl (chrome_red: dark red, high
+  // specular, high shininess) — brightened slightly to sit closer to the
+  // site's accent color while keeping the glossy "chrome" specular pop.
+  const chromeMaterial = new THREE.MeshPhongMaterial({
+    color: 0xC8102E,
+    specular: 0xffffff,
+    shininess: 220,
+    reflectivity: 1
+  });
+
   const ring3dEl = document.getElementById('ring3d');
-
-  // three.js is vendored at /vendor/three and pulled in with dynamic ESM
-  // imports (see the import map in <head>), so the hero object needs no CDN.
-  // It used to read window.THREE off a cdnjs/jsdelivr <script>, and whenever
-  // that fetch failed #ring3d stayed an empty box for the whole session.
-  (async () => {
-    if (!ring3dEl) return;
-
-    let THREE, OBJLoader;
-    try {
-      THREE = await import('three');
-      ({ OBJLoader } = await import('three/addons/loaders/OBJLoader.js'));
-    } catch (err) {
-      console.error('[ring3d] three.js failed to load from /vendor/three:', err);
-      return;
-    }
-
-    // three r152+ enables colour management by default, which reads as a
-    // darker, flatter red than this design was tuned against. Match the legacy
-    // (r128-era) response so the accent keeps its brightness.
-    if (THREE.ColorManagement) THREE.ColorManagement.enabled = false;
-
-    // Material rebuilt from the model's .mtl (chrome_red: dark red, high
-    // specular, high shininess) — brightened slightly to sit closer to the
-    // site's accent color while keeping the glossy "chrome" specular pop.
-    const chromeMaterial = new THREE.MeshPhongMaterial({
-      color: 0xC8102E,
-      specular: 0xffffff,
-      shininess: 220,
-      reflectivity: 1
-    });
-
+  if (!window.THREE) {
+    console.error('[ring3d] three.js failed to load from CDN — check network/CDN access.');
+  } else if (!THREE.OBJLoader) {
+    console.error('[ring3d] THREE.OBJLoader failed to load from CDN — check network/CDN access.');
+  }
+  if (ring3dEl && window.THREE && THREE.OBJLoader) {
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(40, 1, 0.1, 100);
     camera.position.set(0, 0, 7);
@@ -1240,30 +1178,8 @@ f 188 185 189 192
     const spinGroup = new THREE.Group();
     scene.add(spinGroup);
 
-    // The real brand object: /assets/red_3d_sunburst.obj — the 20-spoke sunburst
-    // the hero was built around before this page moved into an iframe. Its
-    // `mtllib` reference is ignored on purpose: the MTL only names a flat matte
-    // red, whereas the glossy accent material above is what this design tuned.
-    const loader = new OBJLoader();
-    let object = null;
-    try {
-      const res = await fetch(RING3D_MODEL_URL);
-      if (!res.ok) throw new Error('HTTP ' + res.status);
-      object = loader.parse(await res.text());
-    } catch (err) {
-      console.warn('[ring3d] ' + RING3D_MODEL_URL + ' unavailable (' + (err && err.message) + ') — using the inline chrome sunburst instead.');
-      try {
-        object = loader.parse(CHROME_SUNBURST_OBJ);
-      } catch (fallbackErr) {
-        console.error('[ring3d] inline fallback failed too:', fallbackErr);
-      }
-    }
-    // If neither source yielded geometry, leave the hero's radial glow in place
-    // rather than throwing inside the async init and logging an unhandled rejection.
-    if (!object) {
-      console.error('[ring3d] no usable sunburst geometry — hero 3D disabled.');
-      return;
-    }
+    const loader = new THREE.OBJLoader();
+    const object = loader.parse(CHROME_SUNBURST_OBJ);
     object.traverse((child) => { if (child.isMesh) child.material = chromeMaterial; });
 
     const box = new THREE.Box3().setFromObject(object);
@@ -1317,7 +1233,7 @@ f 188 185 189 192
       requestAnimationFrame(animateRing3d);
     }
     animateRing3d();
-  })();
+  }
 
 
   // Count-up stats
