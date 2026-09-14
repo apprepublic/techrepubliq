@@ -1,148 +1,147 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { motion } from "motion/react";
-import { Button } from "@/components/Button";
-import { services } from "@/lib/utils";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { ORDER_KEY, formatUsd, serviceTitle, type IntakeState, type BillingCadence } from "@/lib/product";
+import { saveProject, type StoredProject } from "@/lib/store";
+import { addonCatalog, addonMonthly, computePrice, tiers } from "@/lib/product";
+import { useTone } from "@/lib/theme";
+import { PageWrap, PrimaryButton, SignalPanel, TextInput, Field } from "@/components/product-ui";
+import Link from "next/link";
 
-declare global {
-  interface Window {
-    PaystackPop: any;
-  }
-}
-
-const PAYSTACK_PUBLIC_KEY = "pk_live_af6dd65a2044289cce39d4a5b910d490c41037e5";
+type LastOrder = { intake: IntakeState; totalDue: number; cadence: BillingCadence };
 
 export default function CheckoutPage() {
   const router = useRouter();
+  const t = useTone();
+  const [order, setOrder] = useState<LastOrder | null>(null);
   const [agreed, setAgreed] = useState(false);
+  const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [scriptLoaded, setScriptLoaded] = useState(false);
-  const [params, setParams] = useState({ ref: "", amount: 0, amountCents: 0, category: "", discountCode: "" });
 
   useEffect(() => {
-    const sp = new URLSearchParams(window.location.search);
-    const amt = Number(sp.get("amount") ?? "0");
-    setParams({
-      ref: sp.get("ref") ?? "",
-      amount: amt,
-      amountCents: amt * 100,
-      category: sp.get("category") ?? "",
-      discountCode: sp.get("discount") ?? "",
-    });
-
-    // Load Paystack inline script
-    if (!document.querySelector('script[src="https://js.paystack.co/v1/inline.js"]')) {
-      const script = document.createElement("script");
-      script.src = "https://js.paystack.co/v1/inline.js";
-      script.onload = () => setScriptLoaded(true);
-      document.body.appendChild(script);
-    } else {
-      setScriptLoaded(true);
+    try {
+      const raw = localStorage.getItem(ORDER_KEY);
+      if (raw) setOrder(JSON.parse(raw));
+      setEmail(sessionStorage.getItem("customer_email") || "");
+    } catch {
+      setOrder(null);
     }
   }, []);
 
-  const service = services.find((s) => s.slug === params.category);
+  if (!order) {
+    return (
+      <PageWrap>
+        <div className="mx-auto max-w-[480px] px-6 py-24 text-center">
+          <p className={t.muted}>Nothing to pay yet.</p>
+          <Link href="/quote" className="mt-4 inline-block text-[#C8102E]">
+            Get Started
+          </Link>
+        </div>
+      </PageWrap>
+    );
+  }
 
-  const handlePay = async () => {
+  const pay = async () => {
     setLoading(true);
     setError("");
-
-    // Always use Paystack live key
-    const email = sessionStorage.getItem("customer_email") || "customer@example.com";
-    const customerName = sessionStorage.getItem("customer_name") || "Customer";
-
-    try {
-      const handler = window.PaystackPop.setup({
-        key: PAYSTACK_PUBLIC_KEY,
-        email,
-        amount: params.amountCents,
-        currency: "NGN",
-        ref: params.ref || `QR-${Date.now()}`,
-        metadata: {
-          custom_fields: [
-            { display_name: "Customer Name", variable_name: "customer_name", value: customerName },
-            { display_name: "Service", variable_name: "service", value: service?.title || "Custom project" },
-          ],
-        },
-        callback: () => {
-          router.push(`/checkout/confirmation?ref=${params.ref}`);
-        },
-        onClose: () => {
-          setLoading(false);
-          setError("Payment window was closed. You can try again.");
-        },
-      });
-      handler.openIframe();
-    } catch (e) {
-      setError("Could not load Paystack. Please try again.");
-      setLoading(false);
-    }
+    await new Promise((r) => setTimeout(r, 900));
+    const id = `PRJ-${Date.now().toString(36).toUpperCase()}`;
+    const price = computePrice({
+      category: order.intake.category,
+      tierId: order.intake.tierId,
+      brief: order.intake.brief,
+      addonIds: order.intake.extraAddonIds,
+      buyDomain: order.intake.buyDomain,
+      storeDeploy: order.intake.storeDeploy,
+      cadence: order.intake.cadence,
+    });
+    const tier = tiers.find((x) => x.id === order.intake.tierId) ?? tiers[1];
+    const addonIds = Array.from(new Set([...price.inferredAddonIds, ...order.intake.extraAddonIds]));
+    const project: StoredProject = {
+      id,
+      name: serviceTitle(order.intake.category),
+      category: order.intake.category,
+      tierId: order.intake.tierId,
+      status: "Queued",
+      previewUrl: null,
+      customDomain: order.intake.hasDomain === "yes" ? "your-domain" : null,
+      createdAt: new Date().toISOString().slice(0, 10),
+      totalPaid: order.totalDue,
+      cadence: order.intake.cadence,
+      services: addonIds.map((aid) => {
+        const addon = addonCatalog.find((a) => a.id === aid)!;
+        return {
+          id: aid,
+          name: addon.name,
+          monthly: addonMonthly(addon, tier),
+          status: "Active" as const,
+          renewsOn: new Date(Date.now() + 365 * 86400000).toISOString().slice(0, 10),
+        };
+      }),
+      revisionsLeft: tier.revisions,
+      launched: false,
+      hasEmail: addonIds.includes("email"),
+      hasDatabase: order.intake.category !== "training" && order.intake.category !== "optimization",
+      isMobile: order.intake.category === "app-development",
+    };
+    saveProject(project);
+    sessionStorage.setItem("last_paid_project", id);
+    if (email) sessionStorage.setItem("customer_email", email);
+    router.push(`/checkout/confirmation?ref=${id}`);
   };
 
   return (
-    <div className="mx-auto max-w-[960px] px-md py-xl">
-      <h1 className="font-display text-[28px] leading-[36px] font-semibold text-ink mb-lg">Checkout</h1>
-
-      <div className="flex flex-col lg:flex-row gap-xl">
-        <div className="flex-1 max-w-[440px]">
-          <div className="bg-accent-dim border border-line rounded-sm p-lg">
-            <h2 className="text-md font-display font-semibold text-ink mb-md">Order summary</h2>
-            <div className="space-y-sm text-sm">
-              <div className="flex justify-between">
-                <span className="text-slate">Service</span>
-                <span className="font-mono text-ink">{service?.title ?? "Custom project"}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate">Quote ref</span>
-                <span className="font-mono text-ink">{params.ref}</span>
-              </div>
-              {params.discountCode && (
-                <div className="flex justify-between">
-                  <span className="text-slate">Discount</span>
-                  <span className="font-mono text-success">{params.discountCode}</span>
-                </div>
-              )}
-              <div className="border-t border-line pt-sm flex justify-between font-medium">
-                <span className="text-ink">Total</span>
-                <span className="font-mono text-ink text-lg">₦{(params.amount * 1500).toLocaleString()}</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="flex-1 max-w-[440px]">
-          <div className="border border-line rounded-sm p-lg">
-            <h2 className="text-md font-display font-semibold text-ink mb-md">Payment</h2>
-
-            <p className="text-xs text-slate mb-md">Pay securely with Paystack (NGN)</p>
-
-            <div className="border border-line rounded-sm p-md mb-lg text-sm text-slate bg-paper">
-              <p className="text-ink font-medium mb-sm">Paystack checkout</p>
-              <p>You will be redirected to Paystack&apos;s secure payment page to complete your transaction using your preferred payment method (card, bank transfer, USSD, or QR).</p>
-            </div>
-
-            <label className="flex items-start gap-sm text-sm text-slate mb-lg cursor-pointer">
-              <input type="checkbox" checked={agreed} onChange={(e) => setAgreed(e.target.checked)} className="mt-1 accent-accent" />
-              <span>I agree to the{" "}<a href="/terms" target="_blank" className="text-accent hover:text-accent-hover underline">Service Agreement</a></span>
+    <PageWrap>
+      <div className="mx-auto max-w-[720px] px-6 py-12 lg:py-16">
+        <h1 className={`font-display text-[28px] font-semibold ${t.ink}`}>Checkout</h1>
+        <p className={`mt-2 mb-8 text-[14px] ${t.muted}`}>
+          An unpaid invoice is on its way to your email. Pay to start the build. There are no refunds once payment is made.
+        </p>
+        <div className="grid lg:grid-cols-2 gap-6">
+          <SignalPanel>
+            <p className={`text-[12px] font-semibold uppercase tracking-[0.08em] text-[#C8102E]`}>Due today</p>
+            <p className={`mt-3 font-display text-[36px] font-semibold tabular-nums ${t.ink}`}>
+              {formatUsd(order.totalDue)}
+            </p>
+            <p className={`mt-2 text-[13px] ${t.muted}`}>
+              {serviceTitle(order.intake.category)} · {order.intake.tierId} · {order.cadence}
+            </p>
+            <p className={`mt-4 text-[13px] ${t.muted}`}>
+              Recurring services are itemized in your dashboard after payment — not on this screen.
+            </p>
+          </SignalPanel>
+          <div className={`rounded-[20px] border p-6 ${t.card}`}>
+            <Field label="Invoice email">
+              <TextInput
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="you@company.com"
+              />
+            </Field>
+            <label className={`mt-5 flex items-start gap-2 text-[13px] ${t.muted}`}>
+              <input type="checkbox" className="mt-1" checked={agreed} onChange={(e) => setAgreed(e.target.checked)} />
+              <span>
+                I agree to the{" "}
+                <Link href="/terms" className="text-[#C8102E]" target="_blank">
+                  Service Agreement
+                </Link>
+                , including the no-refund policy.
+              </span>
             </label>
-
-            {error && (
-              <motion.div initial={{ y: -10, opacity: 0 }} animate={{ y: 0, opacity: 1 }}
-                transition={{ duration: 0.22, ease: [0.2, 0.8, 0.2, 1] }} role="alert"
-                className="bg-error/10 border border-error rounded-sm p-md text-sm text-error mb-md">
-                {error}
-              </motion.div>
-            )}
-
-            <Button className="w-full" disabled={!agreed} loading={loading} onClick={handlePay}>
-              Pay ₦{(params.amount * 1500).toLocaleString()}
-            </Button>
+            {error && <p className="mt-3 text-[13px] text-[#8C2F1B]">{error}</p>}
+            <PrimaryButton
+              className="mt-6 w-full"
+              disabled={!agreed || !email.includes("@")}
+              onClick={pay}
+            >
+              {loading ? "Processing…" : `Pay ${formatUsd(order.totalDue)}`}
+            </PrimaryButton>
           </div>
         </div>
       </div>
-    </div>
+    </PageWrap>
   );
 }

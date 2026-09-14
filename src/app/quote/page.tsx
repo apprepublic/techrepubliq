@@ -1,557 +1,314 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "motion/react";
-import { DimensionLine } from "@/components/DimensionLine";
-import { Button } from "@/components/Button";
 import { services } from "@/lib/utils";
-import { AlertCircle } from "lucide-react";
+import {
+  INTAKE_KEY,
+  emptyIntake,
+  tiers,
+  revisionLabel,
+  type IntakeState,
+} from "@/lib/product";
+import { useTone } from "@/lib/theme";
+import {
+  Card,
+  Field,
+  PageWrap,
+  PrimaryButton,
+  SelectInput,
+  StepTrack,
+  TextArea,
+  TextInput,
+} from "@/components/product-ui";
+import { Check } from "lucide-react";
+import { cn } from "@/lib/utils";
 
-const steps = [
-  { label: "Service" },
-  { label: "Details" },
-  { label: "Review" },
-];
-
-type FormData = {
-  category: string;
-  description: string;
-  features: string[];
-  timeline: string;
-  budget: string;
-};
-
-const timelineOptions = [
-  { value: "asap", label: "As soon as possible" },
-  { value: "1-2 weeks", label: "1–2 weeks" },
-  { value: "3-4 weeks", label: "3–4 weeks" },
-  { value: "1-2 months", label: "1–2 months" },
-  { value: "flexible", label: "Flexible — no rush" },
-];
-
-const budgetOptions = [
-  { value: "under-2k", label: "Under $2,000" },
-  { value: "2k-5k", label: "$2,000 – $5,000" },
-  { value: "5k-10k", label: "$5,000 – $10,000" },
-  { value: "10k-plus", label: "$10,000+" },
-  { value: "not-sure", label: "Not sure yet" },
-];
-
-const STORAGE_KEY = "techrepubliq-quote-session";
-const STORAGE_EXPIRY = 24 * 60 * 60 * 1000;
-
-interface SavedSession {
-  data: FormData;
-  step: number;
-  savedAt: number;
-}
-
-function loadSession(): { data: FormData; step: number } | null {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return null;
-    const saved: SavedSession = JSON.parse(raw);
-    if (Date.now() - saved.savedAt > STORAGE_EXPIRY) {
-      localStorage.removeItem(STORAGE_KEY);
-      return null;
-    }
-    return { data: saved.data, step: saved.step };
-  } catch {
-    return null;
-  }
-}
-
-function saveSession(data: FormData, step: number) {
-  try {
-    const session: SavedSession = { data, step, savedAt: Date.now() };
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(session));
-  } catch {}
-}
+const steps = ["Category", "Tier", "Brief"];
 
 export default function QuotePage() {
   const router = useRouter();
+  const t = useTone();
   const [step, setStep] = useState(0);
-  const [direction, setDirection] = useState(1);
-  const [resumeBanner, setResumeBanner] = useState(false);
-  const [descriptionError, setDescriptionError] = useState("");
-  const [networkError, setNetworkError] = useState("");
-  const [generating, setGenerating] = useState(false);
-  const stepRef = useRef<HTMLDivElement>(null);
-  const firstFieldRef = useRef<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>(null);
-
-  const initialCategory = typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("category") ?? "" : "";
-
-  const [formData, setFormData] = useState<FormData>(() => {
-    const saved = loadSession();
-    if (saved) {
-      return saved.data;
-    }
-    return {
-      category: initialCategory,
-      description: "",
-      features: [],
-      timeline: "",
-      budget: "",
-    };
-  });
-
-  const [restoredStep, setRestoredStep] = useState<number | null>(null);
+  const [data, setData] = useState<IntakeState>(emptyIntake);
+  const [error, setError] = useState("");
+  const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
-    const saved = loadSession();
-    if (saved) {
-      setRestoredStep(saved.step);
-      setResumeBanner(true);
-      setStep(saved.step);
+    const params = new URLSearchParams(window.location.search);
+    const category = params.get("category") ?? "";
+    try {
+      const raw = localStorage.getItem(INTAKE_KEY);
+      const saved = raw ? (JSON.parse(raw) as IntakeState) : emptyIntake();
+      if (category) saved.category = category;
+      setData(saved);
+    } catch {
+      setData({ ...emptyIntake(), category });
     }
+    setHydrated(true);
   }, []);
 
   useEffect(() => {
-    saveSession(formData, step);
-  }, [formData, step]);
+    if (hydrated) localStorage.setItem(INTAKE_KEY, JSON.stringify(data));
+  }, [data, hydrated]);
 
-  useEffect(() => {
-    if (stepRef.current) {
-      const firstInput = stepRef.current.querySelector<HTMLElement>(
-        "input:not([type='checkbox']):not([type='radio']):not([aria-hidden]), textarea, select"
-      );
-      if (firstInput) {
-        firstInput.focus();
+  const selected = services.find((s) => s.slug === data.category);
+  const needsDomain = data.category === "web-development";
+  const needsStore = data.category === "app-development";
+
+  const canContinue = useMemo(() => {
+    if (step === 0) return !!data.category;
+    if (step === 1) return !!data.tierId && !!data.stage;
+    if (step === 2) return data.brief.trim().length >= 40;
+    return false;
+  }, [step, data]);
+
+  const goNext = () => {
+    setError("");
+    if (step === 2) {
+      if (data.brief.trim().length < 40) {
+        setError("Give us a bit more — at least a few sentences about what to build.");
+        return;
       }
-    }
-  }, [step]);
-
-  const selectedService = services.find((s) => s.slug === formData.category);
-
-  const goToStep = useCallback(
-    (newStep: number) => {
-      setDirection(newStep > step ? 1 : -1);
-      setDescriptionError("");
-      setNetworkError("");
-      setStep(newStep);
-    },
-    [step]
-  );
-
-  const handleGenerate = async () => {
-    if (!formData.description.trim()) {
-      setDescriptionError("Please describe your project to continue.");
+      router.push("/quote/result");
       return;
     }
-    setGenerating(true);
-    setNetworkError("");
-
-    try {
-      const res = await fetch("/api/quotes/generate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
-      });
-      if (!res.ok) throw new Error("Failed to generate quote");
-      const data = await res.json();
-      localStorage.removeItem(STORAGE_KEY);
-      router.push(
-        `/quote/result?ref=${data.referenceId}&category=${formData.category}&desc=${encodeURIComponent(formData.description)}&timeline=${formData.timeline}`
-      );
-    } catch {
-      setNetworkError("Couldn't generate your quote. Check your connection and try again.");
-      setGenerating(false);
-    }
-  };
-
-  const slideVariants = {
-    enter: (d: number) => ({ x: d > 0 ? 24 : -24, opacity: 0 }),
-    center: { x: 0, opacity: 1 },
-    exit: (d: number) => ({ x: d > 0 ? -24 : 24, opacity: 0 }),
-  };
-
-  const canContinue =
-    step === 0
-      ? formData.category !== ""
-      : step === 1
-        ? formData.description.trim().length > 0
-        : true;
-
-  const handleDescriptionChange = (value: string) => {
-    if (value.length <= 2000) {
-      setFormData({ ...formData, description: value });
-      if (value.trim()) setDescriptionError("");
-    }
+    setStep((s) => s + 1);
   };
 
   return (
-    <div className="mx-auto max-w-[640px] px-md py-xl">
-      <h1 className="font-display text-[28px] leading-[36px] font-semibold text-ink mb-lg">
-        Request a Quote
-      </h1>
+    <PageWrap>
+      <div className="mx-auto max-w-[640px] px-6 py-12 lg:py-16">
+        <p className={`text-[12px] font-semibold uppercase tracking-[0.08em] ${t.isDark ? "text-[#FF8A80]" : "text-[#C8102E]"}`}>
+          Get Started
+        </p>
+        <h1 className={`mt-2 font-display text-[28px] lg:text-[36px] font-semibold ${t.ink}`}>
+          Describe the product. We’ll price the build.
+        </h1>
+        <p className={`mt-2 mb-8 text-[14px] ${t.muted}`}>
+          No plugin catalog. No token meter. A human team builds what you describe.
+        </p>
 
-      {/* Resume banner */}
-      {resumeBanner && (
-        <div className="mb-lg p-sm bg-accent-dim border border-accent/20 rounded-sm text-sm text-ink flex items-center justify-between gap-sm">
-          <span>Picking up where you left off.</span>
-          <button
-            onClick={() => {
-              setResumeBanner(false);
-              setStep(0);
-              setFormData({
-                category: "",
-                description: "",
-                features: [],
-                timeline: "",
-                budget: "",
-              });
-              localStorage.removeItem(STORAGE_KEY);
-            }}
-            className="text-xs text-accent hover:text-accent-hover underline"
+        <StepTrack steps={steps} current={step} />
+
+        <div className="sr-only" aria-live="polite">
+          Step {step + 1} of 3: {steps[step]}
+        </div>
+
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={step}
+            initial={{ opacity: 0, x: 16 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -16 }}
+            transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+            className="mt-8"
           >
-            Start over
-          </button>
-        </div>
-      )}
+            {step === 0 && (
+              <fieldset>
+                <legend className={`mb-4 text-[14px] ${t.muted}`}>What are we building?</legend>
+                <div className="space-y-2">
+                  {services.map((s) => (
+                    <label
+                      key={s.slug}
+                      className={cn(
+                        "block cursor-pointer rounded-[16px] border p-4 transition-colors",
+                        data.category === s.slug
+                          ? "border-[#C8102E] bg-[rgba(200,16,46,0.08)]"
+                          : t.card
+                      )}
+                    >
+                      <input
+                        type="radio"
+                        name="category"
+                        className="sr-only"
+                        checked={data.category === s.slug}
+                        onChange={() => setData({ ...data, category: s.slug })}
+                      />
+                      <span className={`block text-[15px] font-semibold ${t.ink}`}>{s.title}</span>
+                      <span className={`mt-1 block text-[13px] ${t.muted}`}>{s.short}</span>
+                    </label>
+                  ))}
+                </div>
+              </fieldset>
+            )}
 
-      {/* Step indicator - mobile: ticks only, desktop: labels */}
-      <div className="mb-xl">
-        <div className="md:hidden text-sm text-accent font-body mb-sm">
-          Step {step + 1} of 3: {steps[step].label}
-        </div>
-        <div className="md:block hidden">
-          <DimensionLine steps={steps} currentStep={step} />
-        </div>
-        <div className="md:hidden">
-          <DimensionLine steps={steps} currentStep={step} hideLabels />
-        </div>
-      </div>
-
-      <div aria-live="polite" className="sr-only">
-        Step {step + 1} of 3: {steps[step].label}
-      </div>
-
-      <AnimatePresence mode="wait" custom={direction}>
-        <motion.div
-          key={step}
-          custom={direction}
-          variants={slideVariants}
-          initial="enter"
-          animate="center"
-          exit="exit"
-          transition={{ duration: 0.22, ease: [0.2, 0.8, 0.2, 1] }}
-          ref={stepRef}
-        >
-          {/* Step 0: Category - native radio inputs */}
-          {step === 0 && (
-            <fieldset>
-              <legend className="text-sm text-slate mb-md">
-                Select the service that best matches your project.
-              </legend>
-              <div className="space-y-sm">
-                {services.map((s) => (
-                  <label
-                    key={s.slug}
-                    className={`block p-md border text-sm rounded-sm transition-all duration-150 cursor-pointer ${
-                      formData.category === s.slug
-                        ? "border-accent bg-accent-dim text-ink"
-                        : "border-line text-slate hover:border-ink"
-                    }`}
-                  >
-                    <input
-                      type="radio"
-                      name="category"
-                      value={s.slug}
-                      checked={formData.category === s.slug}
-                      onChange={() =>
-                        setFormData({ ...formData, category: s.slug })
+            {step === 1 && (
+              <div className="space-y-6">
+                <p className={`text-[14px] ${t.muted}`}>
+                  Tiers scale recurring services and included reviews. The development-fee math is the same at every tier.
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {tiers.map((tier) => (
+                    <button
+                      type="button"
+                      key={tier.id}
+                      onClick={() =>
+                        setData({
+                          ...data,
+                          tierId: tier.id,
+                          stage: data.stage || tier.stageHint,
+                        })
                       }
-                      className="sr-only"
+                      className={cn(
+                        "text-left rounded-[16px] border p-4 transition-colors",
+                        data.tierId === tier.id
+                          ? "border-[#C8102E] bg-[rgba(200,16,46,0.08)]"
+                          : t.card
+                      )}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className={`font-semibold ${t.ink}`}>{tier.name}</span>
+                        {data.tierId === tier.id && <Check size={16} className="text-[#C8102E]" />}
+                      </div>
+                      <p className={`mt-1 text-[13px] ${t.muted}`}>{tier.for}</p>
+                      <p className={`mt-2 text-[12px] ${t.muted}`}>{revisionLabel(tier)}</p>
+                    </button>
+                  ))}
+                </div>
+
+                <Field label="Current stage of the business">
+                  <SelectInput
+                    value={data.stage}
+                    onChange={(e) => setData({ ...data, stage: e.target.value })}
+                  >
+                    <option value="">Select…</option>
+                    <option value="solo/small team">Solo / small team</option>
+                    <option value="funded startup">Funded startup</option>
+                    <option value="established business">Established business</option>
+                    <option value="large organization">Large organization</option>
+                  </SelectInput>
+                </Field>
+
+                <div className="grid sm:grid-cols-2 gap-4">
+                  <Field label="Expected daily traffic / volume">
+                    <TextInput
+                      value={data.traffic}
+                      onChange={(e) => setData({ ...data, traffic: e.target.value })}
+                      placeholder="e.g. 2,000 visits/day"
                     />
-                    <span className="font-medium text-ink">{s.title}</span>
-                    <p className="text-xs text-slate mt-xs">
-                      {s.description}
-                    </p>
-                  </label>
-                ))}
-                <label
-                  className={`block p-md border text-sm rounded-sm transition-all duration-150 cursor-pointer ${
-                    formData.category === "other"
-                      ? "border-accent bg-accent-dim text-ink"
-                      : "border-line text-slate hover:border-ink"
-                  }`}
-                >
-                  <input
-                    type="radio"
-                    name="category"
-                    value="other"
-                    checked={formData.category === "other"}
-                    onChange={() =>
-                      setFormData({ ...formData, category: "other" })
-                    }
-                    className="sr-only"
-                  />
-                  <span className="font-medium text-ink">
-                    Not sure — describe my project
-                  </span>
-                  <p className="text-xs text-slate mt-xs">
-                    Tell us about your project and we&apos;ll match it to the right service.
-                  </p>
-                </label>
+                  </Field>
+                  <Field label="Expected registered users">
+                    <TextInput
+                      value={data.users}
+                      onChange={(e) => setData({ ...data, users: e.target.value })}
+                      placeholder="e.g. 5,000"
+                    />
+                  </Field>
+                  <Field label="Daily transactions / orders" hint="Skip if it doesn’t apply.">
+                    <TextInput
+                      value={data.transactions}
+                      onChange={(e) => setData({ ...data, transactions: e.target.value })}
+                      placeholder="e.g. 80 orders/day"
+                    />
+                  </Field>
+                  <Field label="Staff / admin users">
+                    <TextInput
+                      value={data.staff}
+                      onChange={(e) => setData({ ...data, staff: e.target.value })}
+                      placeholder="e.g. 4"
+                    />
+                  </Field>
+                </div>
               </div>
-            </fieldset>
-          )}
+            )}
 
-          {/* Step 1: Details */}
-          {step === 1 && (
-            <div>
-              <p className="text-sm text-slate mb-md">
-                Tell us about your project. The more detail, the more accurate
-                your quote will be.
-              </p>
-
-              <div className="space-y-lg">
-                {selectedService && (
-                  <fieldset>
-                    <legend className="text-sm font-medium text-ink mb-sm">
-                      Which features do you need?
-                    </legend>
-                    <div className="space-y-sm">
-                      {selectedService.features.map((f) => (
-                        <label
-                          key={f}
-                          className="flex items-start gap-sm text-sm text-slate cursor-pointer"
-                        >
-                          <input
-                            type="checkbox"
-                            checked={formData.features.includes(f)}
-                            onChange={(e) =>
-                              setFormData({
-                                ...formData,
-                                features: e.target.checked
-                                  ? [...formData.features, f]
-                                  : formData.features.filter((x) => x !== f),
-                              })
-                            }
-                            className="mt-1 accent-accent"
-                          />
-                          {f}
-                        </label>
-                      ))}
-                    </div>
-                  </fieldset>
-                )}
-
-                <div>
-                  <label
-                    htmlFor="project-desc"
-                    className="text-sm font-medium text-ink mb-sm block"
-                  >
-                    Project description{" "}
-                    <span className="text-error">*</span>
-                  </label>
-                  <textarea
-                    id="project-desc"
-                    ref={firstFieldRef as any}
-                    value={formData.description}
-                    onChange={(e) => handleDescriptionChange(e.target.value)}
-                    placeholder="Describe your project goal, key features, and any specific requirements..."
-                    className={`w-full border rounded-sm p-md text-sm font-body text-ink bg-paper-raised resize-none min-h-[160px] max-h-[240px] transition-colors duration-150 outline-none ${
-                      descriptionError ? "border-error" : formData.description.length > 1800 ? "border-amber" : "border-line focus:border-accent"
-                    }`}
-                    maxLength={2000}
-                    aria-describedby={descriptionError ? "desc-error" : "char-count"}
-                    aria-invalid={!!descriptionError}
+            {step === 2 && (
+              <div className="space-y-6">
+                <p className={`text-[14px] ${t.muted}`}>
+                  {selected ? `${selected.title}: ` : ""}
+                  Send the brief and assets. We infer add-ons from what you write — you don’t pick them here.
+                </p>
+                <Field label="Business brief" hint="What should exist when we launch? Who is it for?">
+                  <TextArea
+                    value={data.brief}
+                    maxLength={4000}
+                    onChange={(e) => setData({ ...data, brief: e.target.value })}
+                    placeholder="We’re a café group that needs a site with locations, online ordering, and a weekly newsletter…"
                   />
-                  {descriptionError && (
-                    <p id="desc-error" className="text-xs text-error mt-xs flex items-center gap-xs">
-                      <AlertCircle size={12} />
-                      {descriptionError}
-                    </p>
-                  )}
-                  <div
-                    id="char-count"
-                    className={`text-xs mt-xs text-right ${
-                      formData.description.length > 1800
-                        ? "text-amber"
-                        : "text-slate"
-                    }`}
-                  >
-                    {formData.description.length}/2000
+                  <div className={`mt-1 text-right text-[12px] ${data.brief.length > 3600 ? "text-amber" : t.muted}`}>
+                    {data.brief.length}/4000
                   </div>
-                </div>
-
-                <div>
-                  <label
-                    htmlFor="timeline"
-                    className="text-sm font-medium text-ink mb-sm block"
-                  >
-                    Timeline preference
-                  </label>
-                  <select
-                    id="timeline"
-                    value={formData.timeline}
+                </Field>
+                <Field label="Logo / brand file" hint="Optional. We only store the file name in this preview.">
+                  <input
+                    type="file"
+                    accept="image/*,.pdf"
+                    className={`block w-full text-[13px] ${t.muted}`}
                     onChange={(e) =>
-                      setFormData({ ...formData, timeline: e.target.value })
+                      setData({ ...data, logoName: e.target.files?.[0]?.name ?? "" })
                     }
-                    className="w-full border border-line rounded-sm p-md text-sm font-body text-ink bg-paper-raised focus:border-accent transition-colors duration-150 outline-none"
-                  >
-                    <option value="">Select a timeline</option>
-                    {timelineOptions.map((o) => (
-                      <option key={o.value} value={o.value}>
-                        {o.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                  />
+                  {data.logoName && <p className={`mt-1 text-[12px] ${t.ink}`}>{data.logoName}</p>}
+                </Field>
 
-                <div>
-                  <label
-                    htmlFor="budget"
-                    className="text-sm font-medium text-ink mb-sm block"
-                  >
-                    Budget range{" "}
-                    <span className="text-slate font-normal">
-                      — Optional, helps us calibrate
-                    </span>
+                {needsDomain && (
+                  <Card>
+                    <p className={`text-[14px] font-medium ${t.ink}`}>Domain</p>
+                    <p className={`mt-1 text-[13px] ${t.muted}`}>
+                      Hosting and backend are included either way. Buying a domain here is optional.
+                    </p>
+                    <div className="mt-3 space-y-2">
+                      <label className={`flex gap-2 text-[14px] ${t.ink}`}>
+                        <input
+                          type="radio"
+                          checked={data.hasDomain === "yes"}
+                          onChange={() => setData({ ...data, hasDomain: "yes", buyDomain: false })}
+                        />
+                        I already have a domain — you’ll get DNS details
+                      </label>
+                      <label className={`flex gap-2 text-[14px] ${t.ink}`}>
+                        <input
+                          type="radio"
+                          checked={data.hasDomain === "no"}
+                          onChange={() => setData({ ...data, hasDomain: "no", buyDomain: true })}
+                        />
+                        Buy a domain through TechRepubliQ
+                      </label>
+                    </div>
+                  </Card>
+                )}
+
+                {needsStore && (
+                  <label className={`flex items-start gap-2 text-[14px] ${t.ink}`}>
+                    <input
+                      type="checkbox"
+                      className="mt-1"
+                      checked={data.storeDeploy}
+                      onChange={(e) => setData({ ...data, storeDeploy: e.target.checked })}
+                    />
+                    Include App Store / Play Store deployment assistance (one-time)
                   </label>
-                  <select
-                    id="budget"
-                    value={formData.budget}
-                    onChange={(e) =>
-                      setFormData({ ...formData, budget: e.target.value })
-                    }
-                    className="w-full border border-line rounded-sm p-md text-sm font-body text-ink bg-paper-raised focus:border-accent transition-colors duration-150 outline-none"
-                  >
-                    <option value="">Prefer not to say</option>
-                    {budgetOptions.map((o) => (
-                      <option key={o.value} value={o.value}>
-                        {o.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Step 2: Review */}
-          {step === 2 && (
-            <div>
-              <p className="text-sm text-slate mb-md">
-                Review your answers before generating your quote.
-              </p>
-              <div className="space-y-sm border border-line rounded-sm p-md">
-                <ReviewField
-                  label="Service"
-                  value={
-                    selectedService?.title ?? "Not sure — describe my project"
-                  }
-                  onEdit={() => goToStep(0)}
-                />
-                <ReviewField
-                  label="Description"
-                  value={formData.description}
-                  onEdit={() => goToStep(1)}
-                />
-                {formData.features.length > 0 && (
-                  <ReviewField
-                    label="Selected features"
-                    value={formData.features.join(", ")}
-                    onEdit={() => goToStep(1)}
-                  />
-                )}
-                {formData.timeline && (
-                  <ReviewField
-                    label="Timeline"
-                    value={
-                      timelineOptions.find((o) => o.value === formData.timeline)
-                        ?.label ?? formData.timeline
-                    }
-                    onEdit={() => goToStep(1)}
-                  />
-                )}
-                {formData.budget && (
-                  <ReviewField
-                    label="Budget"
-                    value={
-                      budgetOptions.find((o) => o.value === formData.budget)
-                        ?.label ?? formData.budget
-                    }
-                    onEdit={() => goToStep(1)}
-                  />
                 )}
               </div>
-            </div>
-          )}
-        </motion.div>
-      </AnimatePresence>
+            )}
+          </motion.div>
+        </AnimatePresence>
 
-      {/* Network error */}
-      {networkError && (
-        <div
-          role="alert"
-          className="mt-lg p-sm bg-error/10 border border-error rounded-sm text-sm text-error flex items-center gap-sm"
-        >
-          <AlertCircle size={14} className="shrink-0" />
-          {networkError}
+        {error && (
+          <p role="alert" className="mt-6 text-[13px] text-[#8C2F1B]">
+            {error}
+          </p>
+        )}
+
+        <div className="mt-10 flex items-center justify-between">
+          {step > 0 ? (
+            <button
+              type="button"
+              onClick={() => setStep((s) => s - 1)}
+              className={`text-[14px] ${t.muted} hover:text-[#C8102E]`}
+            >
+              Back
+            </button>
+          ) : (
+            <span />
+          )}
+          <PrimaryButton disabled={!canContinue} onClick={goNext}>
+            {step === 2 ? (data.tierId === "enterprise" ? "Contact sales" : "Get Priced") : "Continue"}
+          </PrimaryButton>
         </div>
-      )}
-
-      {/* Navigation */}
-      <div className="flex items-center justify-between mt-xl">
-        {step > 0 ? (
-          <Button variant="ghost" onClick={() => goToStep(step - 1)}>
-            Back
-          </Button>
-        ) : (
-          <div />
-        )}
-
-        {step < 2 ? (
-          <Button
-            disabled={!canContinue}
-            onClick={() => {
-              if (step === 1 && !formData.description.trim()) {
-                setDescriptionError("Please describe your project to continue.");
-                return;
-              }
-              goToStep(step + 1);
-            }}
-          >
-            Continue
-          </Button>
-        ) : (
-          <Button
-            disabled={!formData.description.trim()}
-            loading={generating}
-            onClick={handleGenerate}
-          >
-            Generate Quote
-          </Button>
-        )}
       </div>
-    </div>
-  );
-}
-
-function ReviewField({
-  label,
-  value,
-  onEdit,
-}: {
-  label: string;
-  value: string;
-  onEdit: () => void;
-}) {
-  return (
-    <div className="flex items-start justify-between gap-sm">
-      <div className="min-w-0">
-        <p className="text-xs text-slate">{label}</p>
-        <p className="text-sm text-ink truncate">{value}</p>
-      </div>
-      <button
-        onClick={onEdit}
-        className="shrink-0 text-xs text-accent hover:text-accent-hover transition-colors duration-150"
-      >
-        Edit
-      </button>
-    </div>
+    </PageWrap>
   );
 }

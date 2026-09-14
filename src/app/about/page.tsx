@@ -51,7 +51,7 @@ export default function AboutPage() {
               <span className="block text-[#C8102E]">Real Impact.</span>
             </h1>
             <p className={`mt-5 max-w-[48ch] text-[15px] lg:text-[16px] leading-[1.6] ${isDark ? "text-[#9C99AC]" : "text-[#6B6876]"}`}>
-              TECHRepubliq is a forward-thinking software studio, building digital products, platforms and experiences that help businesses grow, scale and thrive in a connected world.
+              TechRepubliQ is a build-and-launch platform: you describe the product, we price it once, and a human team designs, builds, and ships it. Hosting and backend stay with us. You own the outcome.
             </p>
             <div className="mt-8">
               <Link

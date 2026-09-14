@@ -13,7 +13,7 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 
 const variantStyles: Record<Variant, string> = {
   primary:
-    "bg-accent text-white hover:bg-accent-hover disabled:bg-slate disabled:text-white/60",
+    "bg-gradient-to-br from-[#FF5C4D] to-[#C8102E] text-white hover:opacity-95 disabled:opacity-50",
   secondary:
     "bg-transparent text-ink border border-ink hover:bg-ink/5 disabled:border-slate disabled:text-slate",
   ghost:
@@ -34,7 +34,7 @@ export function Button({
     <button
       className={cn(
         "inline-flex items-center justify-center gap-xs px-md py-sm text-sm font-body font-medium",
-        "rounded-sm transition-[background,color,border] duration-150 ease-out",
+        "rounded-full transition-[background,color,border,opacity] duration-150 ease-out",
         "focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2",
         "disabled:cursor-not-allowed",
         variantStyles[variant],

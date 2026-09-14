@@ -39,7 +39,7 @@ export function Footer() {
               />
             </Link>
             <p className="text-[14px] mt-3 max-w-[32ch] text-[#9C99AC]">
-              Building future-ready software — web, app, and AI automation work, one project at a time.
+              Your product, built by a real team. Priced once. Hosting and backend included.
             </p>
             <div className="flex gap-3 mt-6">
               <a
@@ -73,10 +73,12 @@ export function Footer() {
           <div>
             <h4 className="text-sm mb-4 font-medium text-[#9C99AC]">Services</h4>
             <ul className="list-none m-0 p-0 space-y-2.5">
+              <li><Link href="/services" className="text-sm no-underline transition-colors duration-150 text-[#9C99AC] hover:text-[#F7F6FA]">All services</Link></li>
               <li><Link href="/services/web-development" className="text-sm no-underline transition-colors duration-150 text-[#9C99AC] hover:text-[#F7F6FA]">Web Development</Link></li>
               <li><Link href="/services/app-development" className="text-sm no-underline transition-colors duration-150 text-[#9C99AC] hover:text-[#F7F6FA]">App Development</Link></li>
               <li><Link href="/services/ai-automation" className="text-sm no-underline transition-colors duration-150 text-[#9C99AC] hover:text-[#F7F6FA]">AI Automation</Link></li>
               <li><Link href="/services/ai-integration" className="text-sm no-underline transition-colors duration-150 text-[#9C99AC] hover:text-[#F7F6FA]">AI Integration</Link></li>
+              <li><Link href="/services/training" className="text-sm no-underline transition-colors duration-150 text-[#9C99AC] hover:text-[#F7F6FA]">Training</Link></li>
             </ul>
           </div>
 

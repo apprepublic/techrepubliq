@@ -6,9 +6,9 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "TechRepubliQ — Software Development & AI Automation Agency",
+  title: "TechRepubliQ — Built by humans. Priced once.",
   description:
-    "Describe what you need, receive an AI-assisted quote, and get your project delivered. Premium software development and AI automation services.",
+    "A build-and-launch platform. Describe your project, get one upfront price, and a human team designs, builds, and launches it. No tokens mid-build.",
   icons: {
     icon: "/favicon.png",
     apple: "/assets/logo-light.png",
@@ -23,6 +23,12 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link
+          href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@500;600;700&family=Inter:wght@400;500;600&display=swap"
+          rel="stylesheet"
+        />
         <script
           dangerouslySetInnerHTML={{
             __html: `

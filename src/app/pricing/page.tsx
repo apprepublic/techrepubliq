@@ -2,184 +2,149 @@
 
 import { useEffect, useState } from "react";
 import { Accordion } from "@/components/Accordion";
-import { Button } from "@/components/Button";
-import Link from "next/link";
+import { useTone } from "@/lib/theme";
+import { PageWrap, PrimaryLink } from "@/components/product-ui";
+import { BASE_DEV_FEE, RATE_PER_PAGE, RATE_PER_COMPONENT, tiers, revisionLabel } from "@/lib/product";
 
-const faqGroups = [
+const groups = [
   {
-    label: "Getting a Quote",
-    id: "getting-a-quote",
+    label: "Getting priced",
     items: [
       {
-        id: "quote-process",
-        question: "How does the quote process work?",
+        id: "how-priced",
+        question: "How does Get Priced work?",
         answer:
-          "You describe your project using our structured intake form. Our AI quoting engine analyzes your requirements and generates a clear, itemized quote. You can proceed to payment or request a human review.",
+          "You pick a category and tier, send a brief and assets, then hit Get Priced. The engine estimates pages, components, and complexity, infers add-ons, and returns one total. You can add more add-ons before you pay. There is no separate Generate Invoice step.",
       },
       {
-        id: "quote-binding",
-        question: "Is the quote binding?",
+        id: "breakdown",
+        question: "Will I see a line-item breakdown?",
         answer:
-          "Yes. The price you see on your quote is the price you pay — provided the scope doesn't change after we begin work.",
+          "Not at purchase. You see one final total. After payment, the dashboard itemizes recurring services so you can manage them individually.",
       },
       {
-        id: "no-category",
-        question: "What if my project doesn't fit a category?",
-        answer:
-          "Select 'Not sure — describe my project' on the intake form. We'll review your description and match it to the right service category.",
+        id: "dev-fee",
+        question: "How is the development fee calculated?",
+        answer: `A $3 per page rate, $3 per component/model, and a $${BASE_DEV_FEE} base — identical at every tier — adjusted by the complexity of what you described. Tiers never change this math.`,
       },
     ],
   },
   {
-    label: "Payment",
-    id: "payment",
+    label: "Tiers & billing",
     items: [
       {
-        id: "payment-methods",
-        question: "What payment methods do you accept?",
+        id: "tiers",
+        question: "What do tiers change?",
         answer:
-          "If you're in Nigeria, you pay via Paystack in Naira. International customers pay via Stripe in USD. Your payment method is automatically selected based on your location.",
+          "Recurring service prices, email volume, and included pre-launch reviews. Not the development-fee formula. Tiers can only be upgraded, never downgraded.",
       },
       {
-        id: "discounts",
-        question: "Do you offer discounts?",
+        id: "annual",
+        question: "Annual or monthly?",
         answer:
-          "We occasionally offer discount codes for specific campaigns. Enter your code at checkout to apply it.",
+          "The subscription figure is annual by default. Switching to monthly adds a 15% markup to that annual total, then splits it across 12 payments.",
       },
       {
-        id: "refund-policy",
-        question: "What's your refund policy?",
+        id: "cancel",
+        question: "Can I cancel a service?",
         answer:
-          "We stand by our work. If we fail to deliver what was quoted, you're eligible for a full refund. Contact us within 14 days of payment to initiate a review.",
+          "Yes, each recurring add-on is cancellable from the dashboard with a confirmation prompt. It ends at the next renewal, not mid-cycle. A 7-day grace period applies if a quota lapses; after that, only that service is removed.",
       },
     ],
   },
   {
-    label: "Migration & Ownership",
-    id: "migration-ownership",
+    label: "Build, edits, refunds",
     items: [
       {
-        id: "who-owns",
-        question: "Who owns the final product?",
+        id: "reviews",
+        question: "How many revisions do I get?",
         answer:
-          "You own the front-end code and content of your product. Our proprietary backend infrastructure, AI automation components, and internal tooling remain our property — they're what let us deliver quickly and reliably.",
+          "MVP 3, Startup 5, Business 10, Enterprise unlimited — before launch. Extra reviews are $10 for +2 or $15 for +3, repeatable. After launch, use pay-per-edit or a monthly update plan.",
       },
       {
-        id: "can-migrate",
-        question: "Can I migrate my project later?",
+        id: "refunds",
+        question: "What’s the refund policy?",
         answer:
-          "Yes. You can request migration files from your dashboard at any time. You'll receive your front-end code and applicable backend files. Proprietary AI components are not portable.",
+          "There are no refunds, for anything, once payment has been made. During the build, the path is reviews — not a refund.",
       },
       {
-        id: "domain-handling",
-        question: "What happens to my domain?",
+        id: "tokens",
+        question: "Do I run out of tokens mid-build?",
         answer:
-          "We'll transfer your domain to the registrar or account you specify on request. We don't disclose where the domain was originally registered.",
+          "No. The build is a one-time fee to complete the scoped work. Tokens apply only to optional AI feature add-ons after launch.",
       },
     ],
   },
   {
-    label: "Support",
-    id: "support",
+    label: "Ownership & migration",
     items: [
       {
-        id: "after-payment",
-        question: "What happens after I pay?",
+        id: "stack",
+        question: "Will you tell me which vendors you use?",
         answer:
-          "You'll receive an invoice by email and your order will appear in your dashboard. We'll begin work according to the timeline quoted.",
+          "No. Hosting, backend, email, maps, and AI providers stay confidential. You see service line items and your own data. If something breaks, we handle it.",
       },
       {
-        id: "ongoing-support",
-        question: "Can I get ongoing support after delivery?",
+        id: "migrate",
+        question: "Can I take the project elsewhere?",
         answer:
-          "Yes. Ongoing management and support can be added as a separate service. Contact us for details.",
-      },
-      {
-        id: "contact",
-        question: "How do I contact you?",
-        answer:
-          "Use the contact form on this page, or email us directly. We typically respond within 24 hours.",
+          "The owner can request migration after an OTP to the account email. You download a front-end bundle — never backend structure or the connection. No GitHub linking.",
       },
     ],
   },
 ];
 
 export default function PricingPage() {
+  const t = useTone();
   const [initialOpen, setInitialOpen] = useState<string | null>(null);
 
   useEffect(() => {
     const hash = window.location.hash.replace("#", "");
     if (hash) {
-      const el = document.getElementById(hash);
-      if (el) {
-        el.scrollIntoView({ behavior: "smooth", block: "start" });
-        setInitialOpen(hash);
-      }
+      document.getElementById(hash)?.scrollIntoView({ behavior: "smooth", block: "start" });
+      setInitialOpen(hash);
     }
   }, []);
 
   return (
-    <div className="mx-auto max-w-[760px] px-md py-xl">
-      <h1 className="font-display text-[28px] leading-[36px] font-semibold text-ink mb-lg">
-        How pricing works
-      </h1>
-
-      <div className="dimension-line w-full mb-xl">
-        <div className="dimension-tick flex-1 flex flex-col items-center">
-          <span className="tick-label mt-sm text-sm font-body text-slate">
-            Describe
-          </span>
-        </div>
-        <div className="dimension-tick flex-1 flex flex-col items-center active">
-          <span className="tick-label mt-sm text-sm font-body text-accent">
-            Quote
-          </span>
-        </div>
-        <div className="dimension-tick flex-1 flex flex-col items-center">
-          <span className="tick-label mt-sm text-sm font-body text-slate">
-            Pay
-          </span>
-        </div>
-        <div className="dimension-tick flex-1 flex flex-col items-center">
-          <span className="tick-label mt-sm text-sm font-body text-slate">
-            Delivered
-          </span>
-        </div>
-      </div>
-
-      <p className="text-base leading-relaxed text-slate mb-xl">
-        Every project is different, so we don&apos;t use fixed price tables. Instead, you
-        describe what you need, and our AI generates a precise, itemized quote
-        based on your scope. The price you see is the price you pay — no hidden
-        fees, no surprises.
-      </p>
-
-      <div className="space-y-xl">
-        {faqGroups.map((group) => (
-          <section key={group.id} id={group.id}>
-            <h2 className="font-display text-md font-semibold text-slate mb-md uppercase tracking-wider text-sm">
-              {group.label}
-            </h2>
-            <Accordion
-              items={group.items.map((item) => ({
-                id: item.id,
-                question: item.question,
-                answer: item.answer,
-              }))}
-              initialOpen={initialOpen}
-            />
-          </section>
-        ))}
-      </div>
-
-      <div className="mt-xl pt-xl border-t border-line text-center">
-        <p className="text-base text-slate mb-md">
-          Still have a question?
+    <PageWrap>
+      <div className="mx-auto max-w-[760px] px-6 py-12 lg:py-16">
+        <p className="text-[12px] font-semibold uppercase tracking-[0.08em] text-[#C8102E]">Pricing</p>
+        <h1 className={`mt-2 font-display text-[32px] font-semibold ${t.ink}`}>How pricing works</h1>
+        <p className={`mt-3 text-[15px] leading-[1.7] ${t.muted}`}>
+          Cost is the output of describing your project — not the headline. One development fee
+          (${RATE_PER_PAGE}/page + ${RATE_PER_COMPONENT}/component + ${BASE_DEV_FEE} base) plus recurring
+          services scaled by tier.
         </p>
-        <Link href="/quote">
-          <Button variant="ghost">Contact us</Button>
-        </Link>
+
+        <div className="mt-10 grid grid-cols-2 sm:grid-cols-4 gap-3">
+          {tiers.map((tier) => (
+            <div key={tier.id} className={`rounded-[16px] border p-4 ${t.card}`}>
+              <div className="text-[12px] font-semibold text-[#C8102E]">{tier.name}</div>
+              <div className={`mt-1 text-[13px] ${t.ink}`}>
+                {tier.serviceMonthly == null ? "Contact sales" : `From $${tier.serviceMonthly}/mo`}
+              </div>
+              <div className={`mt-1 text-[12px] ${t.muted}`}>{revisionLabel(tier)}</div>
+            </div>
+          ))}
+        </div>
+
+        <div className="mt-12 space-y-10">
+          {groups.map((g) => (
+            <section key={g.label}>
+              <h2 className={`mb-3 text-[13px] font-semibold uppercase tracking-wider ${t.muted}`}>{g.label}</h2>
+              <Accordion items={g.items} initialOpen={initialOpen} />
+            </section>
+          ))}
+        </div>
+
+        <div className={`mt-12 rounded-[20px] border p-6 text-center ${t.card}`}>
+          <p className={t.muted}>Ready to see a number for your project?</p>
+          <PrimaryLink href="/quote" className="mt-4">
+            Get Started
+          </PrimaryLink>
+        </div>
       </div>
-    </div>
+    </PageWrap>
   );
 }

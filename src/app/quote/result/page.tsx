@@ -1,213 +1,194 @@
 "use client";
 
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { motion, AnimatePresence } from "motion/react";
-import { CornerBracketFrame } from "@/components/CornerBracketFrame";
-import { Button } from "@/components/Button";
-import { services } from "@/lib/utils";
-import { useState, useEffect } from "react";
-import { CheckCircle2, Clock } from "lucide-react";
-
-// Mock quote generation
-function generateQuote(
-  category: string,
-  description: string,
-  timeline: string
-) {
-  const service = services.find((s) => s.slug === category);
-  const basePrice = service?.startingPrice ?? 2000;
-  const descLength = description.length;
-  const complexity = descLength > 200 ? 1.5 : descLength > 100 ? 1.2 : 1;
-  const price = Math.round(basePrice * complexity);
-  const isCustom = category === "other";
-  const ref = `QR-${Date.now().toString(36).toUpperCase()}`;
-
-  return {
-    referenceId: ref,
-    price,
-    currency: "USD",
-    scopeSummary: [
-      isCustom
-        ? "Custom scoping based on your description"
-        : `${service?.title} — full project delivery`,
-      "Responsive, production-ready build",
-      "Performance optimization & SEO basics",
-      "Deployment & hosting configuration",
-      "30-day post-delivery support",
-    ],
-    isEstimated: complexity > 1.3,
-    timeline:
-      timeline === "asap"
-        ? "2–3 weeks"
-        : timeline === "1-2 weeks"
-          ? "1–3 weeks"
-          : timeline === "3-4 weeks"
-            ? "3–5 weeks"
-            : timeline === "1-2 months"
-              ? "4–8 weeks"
-              : "To be confirmed",
-  };
-}
+import { addonCatalog, computePrice, emptyIntake, formatUsd, INTAKE_KEY, ORDER_KEY, type IntakeState } from "@/lib/product";
+import { useTone } from "@/lib/theme";
+import { PageWrap, PrimaryButton, SignalPanel } from "@/components/product-ui";
+import { Loader2, Plus, Check } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 export default function QuoteResultPage() {
   const router = useRouter();
-  const [showAllScope, setShowAllScope] = useState(false);
-  const [humanReview, setHumanReview] = useState(false);
-  const [params, setParams] = useState({ category: "", description: "", timeline: "" });
+  const t = useTone();
+  const [intake, setIntake] = useState<IntakeState | null>(null);
+  const [analyzing, setAnalyzing] = useState(true);
+  const [openAddons, setOpenAddons] = useState(false);
 
   useEffect(() => {
-    const sp = new URLSearchParams(window.location.search);
-    setParams({ category: sp.get("category") ?? "", description: sp.get("desc") ?? "", timeline: sp.get("timeline") ?? "" });
+    try {
+      const raw = localStorage.getItem(INTAKE_KEY);
+      setIntake(raw ? JSON.parse(raw) : emptyIntake());
+    } catch {
+      setIntake(emptyIntake());
+    }
+    const timer = setTimeout(() => setAnalyzing(false), 1600);
+    return () => clearTimeout(timer);
   }, []);
 
-  const quote = generateQuote(params.category, params.description, params.timeline);
-  const scopeItems = quote.scopeSummary;
-
-  const [copied, setCopied] = useState(false);
-  const copyRef = () => {
-    navigator.clipboard.writeText(quote.referenceId);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+  const persist = (next: IntakeState) => {
+    setIntake(next);
+    localStorage.setItem(INTAKE_KEY, JSON.stringify(next));
   };
 
-  return (
-    <div className="mx-auto max-w-[560px] px-md py-xl">
-      <motion.div
-        initial={{ opacity: 0, y: 8 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.22, ease: [0.2, 0.8, 0.2, 1] }}
-      >
-        <CornerBracketFrame>
-          {/* Header */}
-          <div className="flex items-start justify-between mb-lg">
-            <div>
-              <p className="text-xs text-slate mb-xs">Quote reference</p>
-              <p className="font-mono text-sm text-ink">
-                {quote.referenceId}
-              </p>
-            </div>
-            <button
-              onClick={copyRef}
-              className="text-xs text-accent hover:text-accent-hover transition-colors duration-150"
-              aria-label="Copy quote reference"
-            >
-              {copied ? "Copied" : "Copy"}
-            </button>
-          </div>
+  const price = useMemo(() => {
+    if (!intake) return null;
+    return computePrice({
+      category: intake.category,
+      tierId: intake.tierId,
+      brief: intake.brief,
+      addonIds: intake.extraAddonIds,
+      buyDomain: intake.buyDomain,
+      storeDeploy: intake.storeDeploy,
+      cadence: intake.cadence,
+    });
+  }, [intake]);
 
-          {/* Status tag */}
-          {quote.isEstimated && !humanReview && (
-            <div className="inline-flex items-center gap-xs px-sm py-xs bg-amber/10 text-amber text-xs rounded-sm mb-lg">
-              <Clock size={12} />
-              Estimated — pending confirmation
+  if (!intake || !price) {
+    return (
+      <PageWrap>
+        <div className="mx-auto max-w-[560px] px-6 py-24 text-center">Loading…</div>
+      </PageWrap>
+    );
+  }
+
+  if (!intake.category || !intake.brief) {
+    return (
+      <PageWrap>
+        <div className="mx-auto max-w-[560px] px-6 py-24 text-center">
+          <p className={t.muted}>Start from the beginning so we can price from your brief.</p>
+          <PrimaryButton className="mt-6" onClick={() => router.push("/quote")}>
+            Get Started
+          </PrimaryButton>
+        </div>
+      </PageWrap>
+    );
+  }
+
+  if (analyzing) {
+    return (
+      <PageWrap>
+        <div className="mx-auto max-w-[480px] px-6 min-h-[60vh] flex flex-col items-center justify-center text-center">
+          <Loader2 className="animate-spin text-[#C8102E] mb-4" size={36} />
+          <h1 className={`font-display text-[24px] font-semibold ${t.ink}`}>Analyzing project…</h1>
+          <p className={`mt-2 text-[14px] ${t.muted}`}>
+            Reading the brief, estimating scope, and attaching the services this build needs.
+          </p>
+        </div>
+      </PageWrap>
+    );
+  }
+
+  if (price.enterprise) {
+    return (
+      <PageWrap>
+        <div className="mx-auto max-w-[560px] px-6 py-16">
+          <SignalPanel>
+            <h1 className={`font-display text-[24px] font-semibold ${t.ink}`}>Enterprise — contact sales</h1>
+            <p className={`mt-3 text-[14px] leading-[1.6] ${t.muted}`}>
+              Enterprise isn’t priced in this flow. We’ll scope hosting, volume, and reviews with your team. No public rate is shown.
+            </p>
+            <PrimaryButton className="mt-6 w-full" onClick={() => router.push("/#quote")}>
+              Talk to us
+            </PrimaryButton>
+          </SignalPanel>
+        </div>
+      </PageWrap>
+    );
+  }
+
+  const toggleAddon = (id: string) => {
+    const extra = intake.extraAddonIds.includes(id)
+      ? intake.extraAddonIds.filter((x) => x !== id)
+      : [...intake.extraAddonIds, id];
+    persist({ ...intake, extraAddonIds: extra });
+  };
+
+  const proceed = () => {
+    const payload = { intake, totalDue: price.totalDue, cadence: intake.cadence, at: Date.now() };
+    localStorage.setItem(ORDER_KEY, JSON.stringify(payload));
+    router.push("/checkout");
+  };
+
+  const catalogLeft = addonCatalog.filter((a) => !price.inferredAddonIds.includes(a.id));
+
+  return (
+    <PageWrap>
+      <div className="mx-auto max-w-[560px] px-6 py-12 lg:py-16">
+        <SignalPanel>
+          <p className={`text-[12px] font-semibold uppercase tracking-[0.08em] ${t.isDark ? "text-[#FF8A80]" : "text-[#C8102E]"}`}>
+            Price summary
+          </p>
+          <h1 className={`mt-2 font-display text-[26px] font-semibold ${t.ink}`}>One total to start the build.</h1>
+          <p className={`mt-2 text-[14px] ${t.muted}`}>
+            Hosting and backend included. Add-ons were inferred from your brief. You can add more below — the number stays a single total.
+          </p>
+
+          <div className="mt-6 flex gap-2">
+            {(["annual", "monthly"] as const).map((c) => (
+              <button
+                key={c}
+                type="button"
+                onClick={() => persist({ ...intake, cadence: c })}
+                className={cn(
+                  "rounded-full px-4 py-1.5 text-[13px] font-medium border",
+                  intake.cadence === c
+                    ? "border-[#C8102E] bg-[rgba(200,16,46,0.1)] text-[#C8102E]"
+                    : `${t.border} ${t.muted}`
+                )}
+              >
+                {c === "annual" ? "Pay annually" : "Pay monthly"}
+              </button>
+            ))}
+          </div>
+          <p className={`mt-2 text-[12px] ${t.muted}`}>
+            Annual is the default. Monthly costs 15% more overall, then splits across 12 payments.
+          </p>
+
+          <p className={`mt-8 font-display text-[40px] font-semibold tabular-nums ${t.ink}`}>
+            <data value={String(price.totalDue)}>{formatUsd(price.totalDue)}</data>
+          </p>
+          <p className={`text-[13px] ${t.muted}`}>
+            {intake.cadence === "annual" ? "Due today (annual)." : "Due today (first month + build)."}
+          </p>
+
+          <button
+            type="button"
+            onClick={() => setOpenAddons(!openAddons)}
+            className="mt-6 inline-flex items-center gap-2 text-[14px] font-medium text-[#C8102E]"
+          >
+            <Plus size={16} /> Add additional add-on
+          </button>
+          {openAddons && (
+            <div className={`mt-3 rounded-[16px] border divide-y ${t.border}`}>
+              {catalogLeft.map((a) => {
+                const on = intake.extraAddonIds.includes(a.id);
+                return (
+                  <button
+                    type="button"
+                    key={a.id}
+                    onClick={() => toggleAddon(a.id)}
+                    className={`flex w-full items-start justify-between gap-3 px-4 py-3 text-left ${t.hoverRow}`}
+                  >
+                    <span>
+                      <span className={`block text-[14px] font-medium ${t.ink}`}>{a.name}</span>
+                      <span className={`block text-[12px] ${t.muted}`}>{a.blurb}</span>
+                    </span>
+                    {on && <Check size={16} className="text-[#C8102E] shrink-0" />}
+                  </button>
+                );
+              })}
             </div>
           )}
 
-          <AnimatePresence mode="wait">
-            {humanReview ? (
-              <motion.div
-                key="review-confirm"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.22, ease: [0.2, 0.8, 0.2, 1] }}
-                className="py-lg text-center"
-              >
-                <CheckCircle2
-                  size={40}
-                  className="mx-auto text-success mb-md"
-                  aria-hidden="true"
-                />
-                <h2 className="text-md font-display font-semibold text-ink mb-sm">
-                  Review requested
-                </h2>
-                <p className="text-sm text-slate mb-lg">
-                  A team member will follow up within 24 hours to review your
-                  quote. You&apos;ll be able to proceed to payment once the
-                  review is confirmed.
-                </p>
-                <Button
-                  variant="secondary"
-                  onClick={() => setHumanReview(false)}
-                >
-                  Back to quote
-                </Button>
-              </motion.div>
-            ) : (
-              <motion.div
-                key="quote-body"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.22, ease: [0.2, 0.8, 0.2, 1] }}
-              >
-                {/* What's included */}
-                <h2 className="text-md font-display font-semibold text-ink mb-md">
-                  What&apos;s included
-                </h2>
-                <ul className="space-y-sm mb-lg">
-                  {(showAllScope ? scopeItems : scopeItems.slice(0, 5)).map(
-                    (item, i) => (
-                      <li
-                        key={i}
-                        className="flex items-start gap-sm text-sm text-slate"
-                      >
-                        <span className="text-accent mt-[3px] shrink-0">—</span>
-                        {item}
-                      </li>
-                    )
-                  )}
-                </ul>
-                {scopeItems.length > 5 && (
-                  <button
-                    onClick={() => setShowAllScope(!showAllScope)}
-                    className="text-xs text-accent hover:text-accent-hover transition-colors duration-150 mb-lg"
-                  >
-                    {showAllScope ? "Show less" : `Show all (${scopeItems.length})`}
-                  </button>
-                )}
-
-                {/* Timeline */}
-                <div className="pb-lg border-b border-line mb-lg">
-                  <p className="text-xs text-slate mb-xs">Estimated timeline</p>
-                  <p className="font-mono text-sm text-ink">{quote.timeline}</p>
-                </div>
-
-                {/* Price */}
-                <div className="mb-lg">
-                  <p className="text-xs text-slate mb-xs">Total</p>
-                  <p className="font-mono text-[28px] leading-[36px] font-medium text-ink">
-                    <data value={quote.price.toString()}>
-                      ${quote.price.toLocaleString()} {quote.currency}
-                    </data>
-                  </p>
-                </div>
-
-                {/* Actions */}
-                <div className="space-y-sm">
-                  <Button
-                    className="w-full"
-                    onClick={() =>
-                      router.push(
-                        `/checkout?ref=${quote.referenceId}&amount=${quote.price}&category=${params.category}`
-                      )
-                    }
-                  >
-                    Proceed to Payment
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    className="w-full"
-                    onClick={() => setHumanReview(true)}
-                  >
-                    Request Human Review
-                  </Button>
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </CornerBracketFrame>
-      </motion.div>
-    </div>
+          <PrimaryButton className="mt-8 w-full" onClick={proceed}>
+            Proceed to Payment
+          </PrimaryButton>
+          <p className={`mt-3 text-center text-[12px] ${t.muted}`}>
+            This sends an unpaid invoice to your email and takes you to checkout. No refunds after payment.
+          </p>
+        </SignalPanel>
+      </div>
+    </PageWrap>
   );
 }
