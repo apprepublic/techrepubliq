@@ -6,7 +6,10 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "api:dev": "npm --prefix workers/api run dev",
+    "api:deploy": "npm --prefix workers/api run deploy",
+    "api:migrate": "npm --prefix workers/api run db:migrate"
   },
   "dependencies": {
     "clsx": "2.1.1",

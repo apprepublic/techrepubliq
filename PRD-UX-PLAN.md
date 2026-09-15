@@ -498,6 +498,7 @@ PRs 1 and 2 are independent. None touches the OBJ or GIF-panel code.
 3. **Does the upgrade nudge need a bandwidth half?** Requests/day is the metric; bandwidth is currently display-only.
 4. **`FROM_EMAIL` is an unset secret in local dev** — outbound mail no-ops with a logged error until it's set. Pre-existing, but it means the Contact Sales emails are untested against a real inbox.
 5. **`/pricing` payment-methods copy is deliberately ahead of the code** — it says USD by card; Stripe and PayPal land in PR 4, so update that answer then.
+6. **Remote D1 migrations are unverified.** All four files (`0001`–`0004_contact_sales`) apply cleanly to a local database; nobody has confirmed whether they were ever applied to the production database `632bb22e…`. Check with `wrangler d1 migrations list techrepubliq --remote` before deploy.
 
 Everything else from the first round is resolved in §9.
 
@@ -556,3 +557,29 @@ The old copy leaned on being cheap — "Priced once", a one-time-fee trust chip,
 5. Terminology stays: Get Started · Get Priced · one-time development fee · Project Services · pre-launch reviews · grace period.
 
 ---
+
+## 20. Worker config & commands
+
+**One config: `workers/api/wrangler.toml`.** The repository root also carried a `wrangler.toml`, tracked since the base commit, that was a stale duplicate of it:
+
+| Problem | Effect |
+| --- | --- |
+| `[[migrations]] directory = "migrations"` | The reported `migrations[0].tag is required`. `[[migrations]]` is **Durable Objects** config and needs a `tag` + `new_classes`; D1 SQL migrations are `migrations_dir`, a *string* on the `[[d1_databases]]` binding |
+| `main = "src/index.ts"` | No such file at the root — the worker entry is `workers/api/src/index.ts` |
+| `[[env.production.d1_databases]]` with `database_id = ""` | Invalid empty ID |
+
+Patching the tag alone would have left a config where `wrangler deploy` from the root uploads the Next.js app directory as the Worker. Deleted instead; nothing referenced it (no CI, and `workers/api/package.json` owns every wrangler script).
+
+**Run wrangler from `workers/api`**, or use the root shortcuts added to the root `package.json`:
+
+| Command | Does |
+| --- | --- |
+| `npm run api:dev` | `wrangler dev` — pass `--compatibility-date 2026-05-03`; local workerd is older than the committed `2026-08-01` and rejects it |
+| `npm run api:deploy` | deploys the Worker |
+| `npm run api:migrate` | `wrangler d1 migrations apply techrepubliq` — **remote**. Append `-- --local` to rehearse against a local copy |
+
+`migrations_dir = "migrations"` is now explicit on the D1 binding, so `d1 migrations` resolves no matter which directory it's invoked from.
+
+**Verified 2026-09-15:** four migrations apply to a local database, 14 commands, no errors — tables: `customers`, `orders`, `quotes`, `sessions`, `contact_sales_leads`, `discount_codes`, `migration_requests`. `node_modules` does not survive between sessions in this sandbox; run `npm ci` first.
+
+**R2:** bucket `techrepubliq-assets`, Standard class, private. Only `bucket_name` in the config has to match — the binding alias is ours, and the code uses `ASSETS`.
