@@ -110,3 +110,76 @@ export async function sendWelcomeEmail(
     return { ok: false };
   }
 }
+interface LeadDetails {
+  name: string;
+  email: string;
+  company?: string;
+  businessStage?: string;
+  expectedScale?: string;
+  category?: string;
+  tierId?: string;
+  notes?: string;
+  source?: string;
+}
+
+function leadRow(label: string, value?: string): string {
+  if (!value) return "";
+  return `<tr><td style="color:#5B6472;font-size:14px;padding:6px 16px 6px 0;vertical-align:top">${label}</td>` +
+    `<td style="color:#12151C;font-size:14px;padding:6px 0;vertical-align:top">${value}</td></tr>`;
+}
+
+/** Decision 14 — the full form submission, straight to admin@techrepubliq.com. */
+export async function sendContactSalesEmail(
+  env: Env,
+  to: string,
+  lead: LeadDetails
+) {
+  const rows = [
+    leadRow("Name", lead.name),
+    leadRow("Email", lead.email),
+    leadRow("Company", lead.company),
+    leadRow("Stage", lead.businessStage),
+    leadRow("Expected scale", lead.expectedScale),
+    leadRow("Category", lead.category),
+    leadRow("Tier", lead.tierId),
+    leadRow("Notes", lead.notes),
+    leadRow("Source", lead.source),
+  ].join("");
+
+  try {
+    await env.SEND_EMAIL.send({
+      from: { name: "TechRepubliQ", email: env.FROM_EMAIL },
+      to: [{ name: "TechRepubliQ Sales", email: to }],
+      subject: `Enterprise enquiry — ${lead.name}${lead.company ? ` (${lead.company})` : ""}`,
+      html: baseHtml(
+        LOGO_URL,
+        `<p>A new Enterprise enquiry came in through the site.</p>
+         <table style="border-collapse:collapse;margin:16px 0">${rows}</table>
+         <p>Reply to the customer directly at <a href="mailto:${lead.email}">${lead.email}</a>.</p>`,
+        "Enterprise enquiry"
+      ),
+    });
+  } catch (err) {
+    console.error("Failed to send contact-sales email:", err);
+  }
+}
+
+/** Short acknowledgement so the customer knows it landed. No pricing, no commitments. */
+export async function sendContactSalesAck(env: Env, to: string, name: string) {
+  try {
+    await env.SEND_EMAIL.send({
+      from: { name: "TechRepubliQ", email: env.FROM_EMAIL },
+      to: [{ name, email: to }],
+      subject: "We got your Enterprise enquiry",
+      html: baseHtml(
+        LOGO_URL,
+        `<p>Hi ${name},</p>
+         <p>Thanks for getting in touch about an Enterprise project. We have your details and someone from the team will reply within one business day to scope it with you.</p>
+         <p>Enterprise work is quoted by conversation rather than by the online estimator, so there's nothing you need to do next.</p>`,
+        "We'll be in touch"
+      ),
+    });
+  } catch (err) {
+    console.error("Failed to send contact-sales acknowledgement:", err);
+  }
+}

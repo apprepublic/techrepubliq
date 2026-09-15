@@ -5,6 +5,7 @@ dist/
 .env
 .env.local
 wrangler.toml.bak
+.wrangler/
 .next/
 *.tsbuildinfo
 *.txt

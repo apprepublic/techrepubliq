@@ -25,6 +25,8 @@ export type Service = {
   outcomes: string[];
   /** What we need from you to start. */
   intake: string[];
+  /** Upload slots on the intake step. `logo` is always asked for first. */
+  assets: { id: string; label: string; hint: string }[];
   /** How it's built. */
   process: string[];
   faq: { q: string; a: string }[];
@@ -32,7 +34,7 @@ export type Service = {
   fromCents: number;
 };
 
-const CONTENT: Omit<Service, "fromCents">[] = [
+const CONTENT: Omit<Service, "fromCents" | "assets">[] = [
   {
     slug: "web-development",
     title: "Web Development",
@@ -357,12 +359,51 @@ const CONTENT: Omit<Service, "fromCents">[] = [
   },
 ];
 
+/** Upload slots per category (PRD §1.4 — "whatever assets are relevant to that category"). */
+const ASSETS: Record<string, { id: string; label: string; hint: string }[]> = {
+  "web-development": [
+    { id: "logo", label: "Logo", hint: "PNG or SVG, if you have one." },
+    { id: "brand", label: "Brand assets", hint: "Colours, fonts, or guidelines." },
+    { id: "content", label: "Content or copy", hint: "Existing pages, text, or a sitemap." },
+  ],
+  "app-development": [
+    { id: "logo", label: "Logo", hint: "PNG or SVG, if you have one." },
+    { id: "designs", label: "Designs or screenshots", hint: "Anything that shows the interface you have in mind." },
+    { id: "brand", label: "Brand assets", hint: "Colours, fonts, or guidelines." },
+  ],
+  "ai-automation": [
+    { id: "logo", label: "Logo", hint: "PNG or SVG, if you have one." },
+    { id: "samples", label: "Sample data or documents", hint: "Real examples of what the automation will handle." },
+    { id: "tools", label: "Tool list", hint: "The systems it needs to connect to, if you know them." },
+  ],
+  "ai-integration": [
+    { id: "logo", label: "Logo", hint: "PNG or SVG, if you have one." },
+    { id: "data", label: "Data samples", hint: "What the AI should search, read, or generate from." },
+    { id: "docs", label: "API or product docs", hint: "Only if you already have them." },
+  ],
+  training: [
+    { id: "logo", label: "Logo", hint: "PNG or SVG, if you have one." },
+    { id: "roster", label: "Team roles", hint: "Who needs training, and what each group does." },
+  ],
+  optimization: [
+    { id: "logo", label: "Logo", hint: "PNG or SVG, if you have one." },
+    { id: "reports", label: "Performance reports", hint: "PageSpeed, analytics, or hosting bills." },
+    { id: "access", label: "Access details", hint: "How to reach the current stack, if you can share it." },
+  ],
+  "web-app-management": [
+    { id: "logo", label: "Logo", hint: "PNG or SVG, if you have one." },
+    { id: "access", label: "Access details", hint: "Hosting, repository, or CMS access." },
+    { id: "issues", label: "Known issues", hint: "Anything already bothering you." },
+  ],
+};
+
 export const services: Service[] = CATEGORIES.map((category) => {
   const content = CONTENT.find((c) => c.slug === category.slug);
   if (!content) throw new Error(`No service copy for ${category.slug}`);
   const floor = floorEstimate(category.slug);
   return {
     ...content,
+    assets: ASSETS[category.slug] ?? [],
     fromCents: computeDevFeeCents({ ...floor, complexity: "standard" }),
   };
 });

@@ -1,53 +1,98 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "motion/react";
 import { DimensionLine } from "@/components/DimensionLine";
 import { Button } from "@/components/Button";
-import { services } from "@/lib/utils";
-import { AlertCircle } from "lucide-react";
+import { ContactSalesForm } from "@/components/ContactSalesForm";
+import { services, serviceBySlug } from "@/lib/services";
+import { getPricingEngine, type ProjectEstimate } from "@/lib/pricing-engine";
+import { api } from "@/lib/api";
+import {
+  ADDON_CATALOG,
+  BUSINESS_STAGES,
+  DOMAIN_OPTIONS,
+  INTAKE_METRICS,
+  ONE_TIME_SERVICES,
+  TIERS,
+  computePrice,
+  formatUsd,
+  recommendTier,
+  revisionLabel,
+  type CategorySlug,
+  type ComplexityId,
+  type TierId,
+} from "@/lib/product";
+import { AlertCircle, CheckCircle2 } from "lucide-react";
+
+/**
+ * PRD §1 — Home → paid order, in five steps.
+ * Category → Tier & scale → Brief & assets → Get Priced → Price summary.
+ * Enterprise never reaches a price: it short-circuits to the Contact Sales form (§4.3).
+ */
 
 const steps = [
-  { label: "Service" },
-  { label: "Details" },
-  { label: "Review" },
-];
-
-type FormData = {
-  category: string;
-  description: string;
-  features: string[];
-  timeline: string;
-  budget: string;
-};
-
-const timelineOptions = [
-  { value: "asap", label: "As soon as possible" },
-  { value: "1-2 weeks", label: "1–2 weeks" },
-  { value: "3-4 weeks", label: "3–4 weeks" },
-  { value: "1-2 months", label: "1–2 months" },
-  { value: "flexible", label: "Flexible — no rush" },
-];
-
-const budgetOptions = [
-  { value: "under-2k", label: "Under $2,000" },
-  { value: "2k-5k", label: "$2,000 – $5,000" },
-  { value: "5k-10k", label: "$5,000 – $10,000" },
-  { value: "10k-plus", label: "$10,000+" },
-  { value: "not-sure", label: "Not sure yet" },
+  { label: "Category" },
+  { label: "Tier & scale" },
+  { label: "Brief & assets" },
+  { label: "Get Priced" },
+  { label: "Price" },
 ];
 
 const STORAGE_KEY = "techrepubliq-quote-session";
 const STORAGE_EXPIRY = 24 * 60 * 60 * 1000;
 
+/** Categories that ask about a domain (PRD §2). */
+const DOMAIN_CATEGORIES = ["web-development", "app-development"];
+
+interface Metrics {
+  requestsPerDay: string;
+  users: string;
+  transactions: string;
+  staff: string;
+  stage: string;
+}
+
+interface StoredAsset {
+  key: string;
+  name: string;
+  slot: string;
+}
+
+interface Session {
+  category: string;
+  tierId: string;
+  metrics: Metrics;
+  brief: string;
+  assets: StoredAsset[];
+  domainOption: string;
+  cadence: "annual" | "monthly";
+  devFeeMode: "once" | "installments";
+  addons: string[];
+  oneTimeServices: string[];
+}
+
 interface SavedSession {
-  data: FormData;
+  data: Session;
   step: number;
   savedAt: number;
 }
 
-function loadSession(): { data: FormData; step: number } | null {
+const emptySession = (category = "", tierId = ""): Session => ({
+  category,
+  tierId,
+  metrics: { requestsPerDay: "", users: "", transactions: "", staff: "", stage: "" },
+  brief: "",
+  assets: [],
+  domainOption: "",
+  cadence: "annual",
+  devFeeMode: "once",
+  addons: [],
+  oneTimeServices: [],
+});
+
+function loadSession(): { data: Session; step: number } | null {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return null;
@@ -56,17 +101,21 @@ function loadSession(): { data: FormData; step: number } | null {
       localStorage.removeItem(STORAGE_KEY);
       return null;
     }
-    return { data: saved.data, step: saved.step };
+    return { data: { ...emptySession(), ...saved.data }, step: saved.step };
   } catch {
     return null;
   }
 }
 
-function saveSession(data: FormData, step: number) {
+function saveSession(data: Session, step: number) {
   try {
-    const session: SavedSession = { data, step, savedAt: Date.now() };
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(session));
-  } catch {}
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({ data, step, savedAt: Date.now() } satisfies SavedSession)
+    );
+  } catch {
+    /* storage unavailable — the flow still works, it just won't resume */
+  }
 }
 
 export default function QuotePage() {
@@ -74,91 +123,232 @@ export default function QuotePage() {
   const [step, setStep] = useState(0);
   const [direction, setDirection] = useState(1);
   const [resumeBanner, setResumeBanner] = useState(false);
-  const [descriptionError, setDescriptionError] = useState("");
+  const [briefError, setBriefError] = useState("");
   const [networkError, setNetworkError] = useState("");
-  const [generating, setGenerating] = useState(false);
+  const [uploadError, setUploadError] = useState("");
+  const [uploading, setUploading] = useState<string | null>(null);
+  const [showContactSales, setShowContactSales] = useState(false);
+  const [estimate, setEstimate] = useState<ProjectEstimate | null>(null);
+  const [referenceId, setReferenceId] = useState("");
+  const [pricingSource, setPricingSource] = useState<"server" | "local" | null>(null);
+  const [analyzing, setAnalyzing] = useState(false);
   const stepRef = useRef<HTMLDivElement>(null);
-  const firstFieldRef = useRef<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>(null);
 
-  const initialCategory = typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("category") ?? "" : "";
-
-  const [formData, setFormData] = useState<FormData>(() => {
-    const saved = loadSession();
-    if (saved) {
-      return saved.data;
-    }
-    return {
-      category: initialCategory,
-      description: "",
-      features: [],
-      timeline: "",
-      budget: "",
-    };
-  });
-
-  const [restoredStep, setRestoredStep] = useState<number | null>(null);
-
-  useEffect(() => {
-    const saved = loadSession();
-    if (saved) {
-      setRestoredStep(saved.step);
-      setResumeBanner(true);
-      setStep(saved.step);
-    }
+  const initialQuery = useMemo(() => {
+    if (typeof window === "undefined") return { category: "", tier: "" };
+    const sp = new URLSearchParams(window.location.search);
+    return { category: sp.get("category") ?? "", tier: sp.get("tier") ?? "" };
   }, []);
 
+  const [session, setSession] = useState<Session>(() => {
+    const saved = loadSession();
+    if (saved) return saved.data;
+    return emptySession(initialQuery.category, initialQuery.tier);
+  });
+
+  // Restore where they left off, honouring ?category= / ?tier= from the landing page.
   useEffect(() => {
-    saveSession(formData, step);
-  }, [formData, step]);
+    const saved = loadSession();
+    if (saved) {
+      setResumeBanner(true);
+      setStep(Math.min(saved.step, 2));
+      return;
+    }
+    if (initialQuery.category && serviceBySlug(initialQuery.category)) {
+      setSession((prev) => ({ ...prev, category: initialQuery.category }));
+      if (initialQuery.tier && TIERS.some((t) => t.id === initialQuery.tier)) {
+        if (initialQuery.tier === "enterprise") setShowContactSales(true);
+        setStep(1);
+      }
+    }
+  }, [initialQuery]);
 
   useEffect(() => {
-    if (stepRef.current) {
-      const firstInput = stepRef.current.querySelector<HTMLElement>(
+    saveSession(session, step);
+  }, [session, step]);
+
+  useEffect(() => {
+    if (step === 0 || step === 1 || step === 2) {
+      const firstInput = stepRef.current?.querySelector<HTMLElement>(
         "input:not([type='checkbox']):not([type='radio']):not([aria-hidden]), textarea, select"
       );
-      if (firstInput) {
-        firstInput.focus();
-      }
+      firstInput?.focus();
     }
   }, [step]);
 
-  const selectedService = services.find((s) => s.slug === formData.category);
+  const service = serviceBySlug(session.category);
+  const engine = getPricingEngine();
 
   const goToStep = useCallback(
-    (newStep: number) => {
-      setDirection(newStep > step ? 1 : -1);
-      setDescriptionError("");
+    (next: number) => {
+      setDirection(next > step ? 1 : -1);
+      setBriefError("");
       setNetworkError("");
-      setStep(newStep);
+      setStep(next);
     },
     [step]
   );
 
-  const handleGenerate = async () => {
-    if (!formData.description.trim()) {
-      setDescriptionError("Please describe your project to continue.");
-      return;
-    }
-    setGenerating(true);
-    setNetworkError("");
+  const patch = (next: Partial<Session>) => setSession((prev) => ({ ...prev, ...next }));
+
+  /* ---------------------------------------------------------------- *
+   * Step 3 — "Get Priced": run the engine, then ask the server to price it.
+   * ---------------------------------------------------------------- */
+  const runPricing = useCallback(async () => {
+    const est = engine.estimate(session.brief, session.category);
+    const inferred = engine.inferAddons(session.brief, session.category);
+    setEstimate(est);
+
+    const payload = {
+      category: session.category,
+      tierId: session.tierId as TierId,
+      brief: session.brief,
+      pages: est.pages,
+      components: est.components,
+      complexity: est.complexity as ComplexityId,
+      metrics: {
+        requestsPerDay: Number(session.metrics.requestsPerDay) || 0,
+        users: Number(session.metrics.users) || 0,
+        transactions: Number(session.metrics.transactions) || 0,
+        staff: Number(session.metrics.staff) || 0,
+        stage: session.metrics.stage || undefined,
+      },
+      assets: session.assets.map((a) => ({ key: a.key, name: a.name })),
+      domainOption: session.domainOption || undefined,
+      cadence: session.cadence,
+      devFeeMode: session.devFeeMode,
+      addons: Array.from(new Set([...inferred, ...session.addons])),
+      oneTimeServices: session.oneTimeServices,
+    };
 
     try {
-      const res = await fetch("/api/quotes/generate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
-      });
-      if (!res.ok) throw new Error("Failed to generate quote");
-      const data = await res.json();
-      localStorage.removeItem(STORAGE_KEY);
-      router.push(
-        `/quote/result?ref=${data.referenceId}&category=${formData.category}&desc=${encodeURIComponent(formData.description)}&timeline=${formData.timeline}`
-      );
+      const pricing = await api.quotes.generate(payload);
+      setReferenceId(pricing.referenceId);
+      setPricingSource("server");
+      patch({ addons: pricing.addons, oneTimeServices: pricing.oneTimeServices });
+      goToStep(4);
     } catch {
-      setNetworkError("Couldn't generate your quote. Check your connection and try again.");
-      setGenerating(false);
+      // The client carries the same model, so the summary can still be shown;
+      // payment will be recomputed server-side against this reference.
+      setReferenceId(`QR-${Date.now().toString(36).toUpperCase()}`);
+      setPricingSource("local");
+      patch({ addons: payload.addons, oneTimeServices: payload.oneTimeServices });
+      goToStep(4);
+    } finally {
+      setAnalyzing(false);
+    }
+  }, [engine, session, goToStep]);
+
+  useEffect(() => {
+    if (step !== 3 || analyzing) return;
+    setAnalyzing(true);
+    const id = window.setTimeout(() => {
+      void runPricing();
+    }, 900); // the "Analyzing project…" beat from PRD §1.5
+    return () => window.clearTimeout(id);
+  }, [step, analyzing, runPricing]);
+
+  /* ---------------------------------------------------------------- *
+   * Totals — recomputed locally from the same model the server uses, so the
+   * toggles are instant. The server is the authority at payment (PR 4).
+   * ---------------------------------------------------------------- */
+  const totals = useMemo(() => {
+    if (!estimate) return null;
+    const input = {
+      category: session.category as CategorySlug,
+      tierId: session.tierId as TierId,
+      pages: estimate.pages,
+      components: estimate.components,
+      complexity: estimate.complexity as ComplexityId,
+      addons: session.addons,
+      oneTimeServices: session.oneTimeServices,
+    };
+    const at = (devFeeMode: "once" | "installments", cadence: "annual" | "monthly") =>
+      computePrice({ ...input, devFeeMode, cadence });
+    const current = at(session.devFeeMode, session.cadence);
+    const annual = at(session.devFeeMode, "annual");
+    return {
+      dueNowCents: current.dueNowCents,
+      devFeeCents: current.devFeeCents,
+      feeOnceCents: current.devFee.payOnceCents,
+      feePerMonthCents: current.devFee.perMonthCents[0],
+      servicesAnnualCents: current.servicesAnnualCents,
+      servicesMonthlyCents: current.servicesMonthlyCents,
+      oneTimeServicesCents: current.oneTimeServicesCents,
+      renewalCents: annual.servicesAnnualCents,
+    };
+  }, [estimate, session]);
+
+  const recommendedTier = useMemo(
+    () =>
+      recommendTier({
+        requestsPerDay: Number(session.metrics.requestsPerDay) || 0,
+        users: Number(session.metrics.users) || 0,
+        transactions: Number(session.metrics.transactions) || 0,
+        staff: Number(session.metrics.staff) || 0,
+        stage: session.metrics.stage || undefined,
+      }),
+    [session.metrics]
+  );
+
+  /* ---------------------------------------------------------------- *
+   * Uploads (R2)
+   * ---------------------------------------------------------------- */
+  const handleUpload = async (slot: string, file: File | undefined) => {
+    if (!file) return;
+    setUploadError("");
+    setUploading(slot);
+    try {
+      const uploaded = await api.uploads.create(file);
+      patch({
+        assets: [
+          ...session.assets.filter((a) => a.slot !== slot),
+          { key: uploaded.key, name: uploaded.name, slot },
+        ],
+      });
+    } catch {
+      setUploadError(
+        "That upload didn't go through. You can carry on and send the files later."
+      );
+    } finally {
+      setUploading(null);
     }
   };
+
+  const toggleAddon = (id: string) =>
+    patch({
+      addons: session.addons.includes(id)
+        ? session.addons.filter((a) => a !== id)
+        : [...session.addons, id],
+    });
+
+  const toggleOneTime = (id: string) =>
+    patch({
+      oneTimeServices: session.oneTimeServices.includes(id)
+        ? session.oneTimeServices.filter((s) => s !== id)
+        : [...session.oneTimeServices, id],
+    });
+
+  // Registering a domain through us adds the one-time service, and vice versa.
+  useEffect(() => {
+    if (session.domainOption === "buy" && !session.oneTimeServices.includes("domain-purchase")) {
+      patch({ oneTimeServices: [...session.oneTimeServices, "domain-purchase"] });
+    }
+    if (session.domainOption === "have") {
+      patch({ oneTimeServices: session.oneTimeServices.filter((s) => s !== "domain-purchase") });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session.domainOption]);
+
+  const canContinue =
+    step === 0
+      ? session.category !== ""
+      : step === 1
+        ? session.tierId !== ""
+        : step === 2
+          ? session.brief.trim().length >= 20 &&
+            (!DOMAIN_CATEGORIES.includes(session.category) || session.domainOption !== "")
+          : true;
 
   const slideVariants = {
     enter: (d: number) => ({ x: d > 0 ? 24 : -24, opacity: 0 }),
@@ -166,41 +356,67 @@ export default function QuotePage() {
     exit: (d: number) => ({ x: d > 0 ? -24 : 24, opacity: 0 }),
   };
 
-  const canContinue =
-    step === 0
-      ? formData.category !== ""
-      : step === 1
-        ? formData.description.trim().length > 0
-        : true;
-
-  const handleDescriptionChange = (value: string) => {
-    if (value.length <= 2000) {
-      setFormData({ ...formData, description: value });
-      if (value.trim()) setDescriptionError("");
-    }
+  const proceedToPayment = () => {
+    if (!totals?.dueNowCents) return;
+    const amount = (totals.dueNowCents / 100).toFixed(2);
+    router.push(
+      `/checkout?ref=${referenceId}&amount=${amount}&category=${session.category}` +
+        `&cadence=${session.cadence}&devFeeMode=${session.devFeeMode}`
+    );
   };
 
+  const inputClass =
+    "w-full border border-line rounded-sm p-md text-sm font-body text-ink bg-paper-raised focus:border-accent transition-colors duration-150 outline-none";
+
+  /* ---------------------------------------------------------------- *
+   * Enterprise short-circuit
+   * ---------------------------------------------------------------- */
+  if (showContactSales) {
+    return (
+      <div className="mx-auto max-w-[640px] px-md py-xl">
+        <p className="font-mono text-xs uppercase tracking-[0.18em] text-accent mb-sm">
+          Enterprise
+        </p>
+        <h1 className="font-display text-[28px] leading-[36px] font-semibold text-ink mb-md">
+          Let&apos;s scope it together
+        </h1>
+        <p className="text-base leading-relaxed text-slate mb-lg">
+          Enterprise projects are quoted by conversation rather than by the online estimator, so
+          there&apos;s no price to show here. Tell us a little about it and we&apos;ll come back to
+          you.
+        </p>
+        <ContactSalesForm
+          category={session.category || undefined}
+          tierId="enterprise"
+          source="quote-enterprise"
+        />
+        <button
+          onClick={() => {
+            setShowContactSales(false);
+            patch({ tierId: "business" });
+          }}
+          className="mt-lg text-sm text-slate hover:text-accent underline"
+        >
+          Actually, price it online instead
+        </button>
+      </div>
+    );
+  }
+
   return (
-    <div className="mx-auto max-w-[640px] px-md py-xl">
+    <div className="mx-auto max-w-[680px] px-md py-xl">
       <h1 className="font-display text-[28px] leading-[36px] font-semibold text-ink mb-lg">
         Get Started
       </h1>
 
-      {/* Resume banner */}
       {resumeBanner && (
         <div className="mb-lg p-sm bg-accent-dim border border-accent/20 rounded-sm text-sm text-ink flex items-center justify-between gap-sm">
           <span>Picking up where you left off.</span>
           <button
             onClick={() => {
               setResumeBanner(false);
+              setSession(emptySession());
               setStep(0);
-              setFormData({
-                category: "",
-                description: "",
-                features: [],
-                timeline: "",
-                budget: "",
-              });
               localStorage.removeItem(STORAGE_KEY);
             }}
             className="text-xs text-accent hover:text-accent-hover underline"
@@ -210,10 +426,9 @@ export default function QuotePage() {
         </div>
       )}
 
-      {/* Step indicator - mobile: ticks only, desktop: labels */}
       <div className="mb-xl">
         <div className="md:hidden text-sm text-accent font-body mb-sm">
-          Step {step + 1} of 3: {steps[step].label}
+          Step {step + 1} of {steps.length}: {steps[step].label}
         </div>
         <div className="md:block hidden">
           <DimensionLine steps={steps} currentStep={step} />
@@ -224,7 +439,7 @@ export default function QuotePage() {
       </div>
 
       <div aria-live="polite" className="sr-only">
-        Step {step + 1} of 3: {steps[step].label}
+        Step {step + 1} of {steps.length}: {steps[step].label}
       </div>
 
       <AnimatePresence mode="wait" custom={direction}>
@@ -238,18 +453,18 @@ export default function QuotePage() {
           transition={{ duration: 0.22, ease: [0.2, 0.8, 0.2, 1] }}
           ref={stepRef}
         >
-          {/* Step 0: Category - native radio inputs */}
+          {/* Step 0 — Category */}
           {step === 0 && (
             <fieldset>
               <legend className="text-sm text-slate mb-md">
-                Select the service that best matches your project.
+                What are you building? Pick the closest fit — we&apos;ll read the brief either way.
               </legend>
               <div className="space-y-sm">
                 {services.map((s) => (
                   <label
                     key={s.slug}
                     className={`block p-md border text-sm rounded-sm transition-all duration-150 cursor-pointer ${
-                      formData.category === s.slug
+                      session.category === s.slug
                         ? "border-accent bg-accent-dim text-ink"
                         : "border-line text-slate hover:border-ink"
                     }`}
@@ -258,232 +473,509 @@ export default function QuotePage() {
                       type="radio"
                       name="category"
                       value={s.slug}
-                      checked={formData.category === s.slug}
-                      onChange={() =>
-                        setFormData({ ...formData, category: s.slug })
-                      }
+                      checked={session.category === s.slug}
+                      onChange={() => patch({ category: s.slug })}
                       className="sr-only"
                     />
                     <span className="font-medium text-ink">{s.title}</span>
-                    <p className="text-xs text-slate mt-xs">
-                      {s.short}
-                    </p>
+                    <p className="text-xs text-slate mt-xs">{s.short}</p>
                   </label>
                 ))}
-                <label
-                  className={`block p-md border text-sm rounded-sm transition-all duration-150 cursor-pointer ${
-                    formData.category === "other"
-                      ? "border-accent bg-accent-dim text-ink"
-                      : "border-line text-slate hover:border-ink"
-                  }`}
-                >
-                  <input
-                    type="radio"
-                    name="category"
-                    value="other"
-                    checked={formData.category === "other"}
-                    onChange={() =>
-                      setFormData({ ...formData, category: "other" })
-                    }
-                    className="sr-only"
-                  />
-                  <span className="font-medium text-ink">
-                    Not sure — describe my project
-                  </span>
-                  <p className="text-xs text-slate mt-xs">
-                    Tell us about your project and we&apos;ll match it to the right service.
-                  </p>
-                </label>
               </div>
             </fieldset>
           )}
 
-          {/* Step 1: Details */}
+          {/* Step 1 — Tier & scale */}
           {step === 1 && (
-            <div>
-              <p className="text-sm text-slate mb-md">
-                Tell us about your project. The more detail, the more accurate
-                your quote will be.
-              </p>
+            <div className="space-y-lg">
+              <fieldset>
+                <legend className="text-sm text-slate mb-md">
+                  Tiers scale your recurring services — never the one-time build fee. You can
+                  upgrade later, never downgrade.
+                </legend>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-sm">
+                  {TIERS.map((tier) => (
+                    <label
+                      key={tier.id}
+                      className={`block p-md border text-sm rounded-sm transition-all duration-150 cursor-pointer ${
+                        session.tierId === tier.id
+                          ? "border-accent bg-accent-dim text-ink"
+                          : "border-line text-slate hover:border-ink"
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="tier"
+                        value={tier.id}
+                        checked={session.tierId === tier.id}
+                        onChange={() =>
+                          tier.id === "enterprise"
+                            ? setShowContactSales(true)
+                            : patch({ tierId: tier.id })
+                        }
+                        className="sr-only"
+                      />
+                      <div className="flex items-baseline justify-between">
+                        <span className="font-medium text-ink">{tier.name}</span>
+                        <span className="font-mono text-xs text-slate">
+                          {tier.monthlyCents === null
+                            ? "Contact Sales"
+                            : `$${tier.monthlyCents / 100}/mo`}
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate mt-xs">{tier.for}</p>
+                      <p className="text-xs text-slate mt-xs">{revisionLabel(tier.id)}</p>
+                    </label>
+                  ))}
+                </div>
+              </fieldset>
 
-              <div className="space-y-lg">
-                {selectedService && (
-                  <fieldset>
-                    <legend className="text-sm font-medium text-ink mb-sm">
-                      Which features do you need?
-                    </legend>
-                    <div className="space-y-sm">
-                      {selectedService.features.map((f) => (
-                        <label
-                          key={f}
-                          className="flex items-start gap-sm text-sm text-slate cursor-pointer"
-                        >
-                          <input
-                            type="checkbox"
-                            checked={formData.features.includes(f)}
-                            onChange={(e) =>
-                              setFormData({
-                                ...formData,
-                                features: e.target.checked
-                                  ? [...formData.features, f]
-                                  : formData.features.filter((x) => x !== f),
-                              })
-                            }
-                            className="mt-1 accent-accent"
-                          />
-                          {f}
-                        </label>
-                      ))}
+              <div>
+                <p className="text-sm font-medium text-ink mb-xs">
+                  Roughly how big is this?{" "}
+                  <span className="text-slate font-normal">
+                    Optional — it only helps us suggest a tier.
+                  </span>
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-md">
+                  {INTAKE_METRICS.map((metric) => (
+                    <div key={metric.id}>
+                      <label
+                        htmlFor={`metric-${metric.id}`}
+                        className="text-xs text-slate mb-xs block"
+                      >
+                        {metric.label}
+                      </label>
+                      <input
+                        id={`metric-${metric.id}`}
+                        type="number"
+                        min={0}
+                        inputMode="numeric"
+                        value={(session.metrics as any)[metric.id]}
+                        onChange={(e) =>
+                          patch({
+                            metrics: { ...session.metrics, [metric.id]: e.target.value },
+                          })
+                        }
+                        className={inputClass}
+                      />
                     </div>
-                  </fieldset>
-                )}
-
-                <div>
-                  <label
-                    htmlFor="project-desc"
-                    className="text-sm font-medium text-ink mb-sm block"
-                  >
-                    Project description{" "}
-                    <span className="text-error">*</span>
-                  </label>
-                  <textarea
-                    id="project-desc"
-                    ref={firstFieldRef as any}
-                    value={formData.description}
-                    onChange={(e) => handleDescriptionChange(e.target.value)}
-                    placeholder="Describe your project goal, key features, and any specific requirements..."
-                    className={`w-full border rounded-sm p-md text-sm font-body text-ink bg-paper-raised resize-none min-h-[160px] max-h-[240px] transition-colors duration-150 outline-none ${
-                      descriptionError ? "border-error" : formData.description.length > 1800 ? "border-amber" : "border-line focus:border-accent"
-                    }`}
-                    maxLength={2000}
-                    aria-describedby={descriptionError ? "desc-error" : "char-count"}
-                    aria-invalid={!!descriptionError}
-                  />
-                  {descriptionError && (
-                    <p id="desc-error" className="text-xs text-error mt-xs flex items-center gap-xs">
-                      <AlertCircle size={12} />
-                      {descriptionError}
-                    </p>
-                  )}
-                  <div
-                    id="char-count"
-                    className={`text-xs mt-xs text-right ${
-                      formData.description.length > 1800
-                        ? "text-amber"
-                        : "text-slate"
-                    }`}
-                  >
-                    {formData.description.length}/2000
+                  ))}
+                  <div>
+                    <label htmlFor="metric-stage" className="text-xs text-slate mb-xs block">
+                      Stage of the business
+                    </label>
+                    <select
+                      id="metric-stage"
+                      value={session.metrics.stage}
+                      onChange={(e) =>
+                        patch({ metrics: { ...session.metrics, stage: e.target.value } })
+                      }
+                      className={inputClass}
+                    >
+                      <option value="">Prefer not to say</option>
+                      {BUSINESS_STAGES.map((s) => (
+                        <option key={s.id} value={s.id}>
+                          {s.label}
+                        </option>
+                      ))}
+                    </select>
                   </div>
                 </div>
-
-                <div>
-                  <label
-                    htmlFor="timeline"
-                    className="text-sm font-medium text-ink mb-sm block"
-                  >
-                    Timeline preference
-                  </label>
-                  <select
-                    id="timeline"
-                    value={formData.timeline}
-                    onChange={(e) =>
-                      setFormData({ ...formData, timeline: e.target.value })
-                    }
-                    className="w-full border border-line rounded-sm p-md text-sm font-body text-ink bg-paper-raised focus:border-accent transition-colors duration-150 outline-none"
-                  >
-                    <option value="">Select a timeline</option>
-                    {timelineOptions.map((o) => (
-                      <option key={o.value} value={o.value}>
-                        {o.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label
-                    htmlFor="budget"
-                    className="text-sm font-medium text-ink mb-sm block"
-                  >
-                    Budget range{" "}
-                    <span className="text-slate font-normal">
-                      — Optional, helps us calibrate
-                    </span>
-                  </label>
-                  <select
-                    id="budget"
-                    value={formData.budget}
-                    onChange={(e) =>
-                      setFormData({ ...formData, budget: e.target.value })
-                    }
-                    className="w-full border border-line rounded-sm p-md text-sm font-body text-ink bg-paper-raised focus:border-accent transition-colors duration-150 outline-none"
-                  >
-                    <option value="">Prefer not to say</option>
-                    {budgetOptions.map((o) => (
-                      <option key={o.value} value={o.value}>
-                        {o.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                {recommendedTier !== session.tierId && recommendedTier !== "enterprise" && (
+                  <p className="mt-sm text-xs text-slate">
+                    Based on those numbers we&apos;d suggest{" "}
+                    <button
+                      onClick={() => patch({ tierId: recommendedTier })}
+                      className="text-accent underline"
+                    >
+                      {TIERS.find((t) => t.id === recommendedTier)?.name}
+                    </button>
+                    . Yours to choose — you can upgrade later.
+                  </p>
+                )}
               </div>
             </div>
           )}
 
-          {/* Step 2: Review */}
+          {/* Step 2 — Brief & assets */}
           {step === 2 && (
-            <div>
-              <p className="text-sm text-slate mb-md">
-                Review your answers before generating your quote.
-              </p>
-              <div className="space-y-sm border border-line rounded-sm p-md">
-                <ReviewField
-                  label="Service"
-                  value={
-                    selectedService?.title ?? "Not sure — describe my project"
-                  }
-                  onEdit={() => goToStep(0)}
+            <div className="space-y-lg">
+              <div>
+                <label htmlFor="brief" className="text-sm font-medium text-ink mb-sm block">
+                  Describe your project <span className="text-error">*</span>
+                </label>
+                <p className="text-xs text-slate mb-sm">
+                  What it should do, who uses it, and anything it has to connect to. This is what
+                  the pricing engine reads.
+                </p>
+                <textarea
+                  id="brief"
+                  value={session.brief}
+                  onChange={(e) => patch({ brief: e.target.value.slice(0, 2000) })}
+                  placeholder="e.g. A booking site for three salon locations: customers pick a service, choose a stylist, and pay a deposit. Staff need a dashboard and SMS reminders."
+                  className={`w-full border rounded-sm p-md text-sm font-body text-ink bg-paper-raised resize-none min-h-[160px] transition-colors duration-150 outline-none ${
+                    briefError ? "border-error" : "border-line focus:border-accent"
+                  }`}
+                  maxLength={2000}
                 />
-                <ReviewField
-                  label="Description"
-                  value={formData.description}
-                  onEdit={() => goToStep(1)}
-                />
-                {formData.features.length > 0 && (
-                  <ReviewField
-                    label="Selected features"
-                    value={formData.features.join(", ")}
-                    onEdit={() => goToStep(1)}
-                  />
-                )}
-                {formData.timeline && (
-                  <ReviewField
-                    label="Timeline"
-                    value={
-                      timelineOptions.find((o) => o.value === formData.timeline)
-                        ?.label ?? formData.timeline
+                <div className="flex items-center justify-between mt-xs">
+                  {briefError && (
+                    <p className="text-xs text-error flex items-center gap-xs">
+                      <AlertCircle size={12} />
+                      {briefError}
+                    </p>
+                  )}
+                  <span className="text-xs text-slate ml-auto">
+                    {session.brief.length}/2000
+                  </span>
+                </div>
+              </div>
+
+              {DOMAIN_CATEGORIES.includes(session.category) && (
+                <fieldset>
+                  <legend className="text-sm font-medium text-ink mb-sm">Domain</legend>
+                  <div className="space-y-sm">
+                    {DOMAIN_OPTIONS.map((option) => (
+                      <label
+                        key={option.id}
+                        className={`block p-md border text-sm rounded-sm transition-all duration-150 cursor-pointer ${
+                          session.domainOption === option.id
+                            ? "border-accent bg-accent-dim text-ink"
+                            : "border-line text-slate hover:border-ink"
+                        }`}
+                      >
+                        <input
+                          type="radio"
+                          name="domain"
+                          value={option.id}
+                          checked={session.domainOption === option.id}
+                          onChange={() => patch({ domainOption: option.id })}
+                          className="sr-only"
+                        />
+                        <span className="font-medium text-ink">{option.label}</span>
+                        <p className="text-xs text-slate mt-xs">{option.note}</p>
+                      </label>
+                    ))}
+                  </div>
+                </fieldset>
+              )}
+
+              <div>
+                <p className="text-sm font-medium text-ink mb-xs">Assets</p>
+                <p className="text-xs text-slate mb-md">
+                  Optional, and you can always send them later. They go straight to our own
+                  storage.
+                </p>
+                <div className="space-y-md">
+                  {(service?.assets ?? [{ id: "logo", label: "Logo", hint: "PNG or SVG." }]).map(
+                    (slot) => {
+                      const uploaded = session.assets.find((a) => a.slot === slot.id);
+                      return (
+                        <div key={slot.id} className="flex items-center justify-between gap-md">
+                          <div className="min-w-0">
+                            <p className="text-sm text-ink">{slot.label}</p>
+                            <p className="text-xs text-slate">{slot.hint}</p>
+                            {uploaded && (
+                              <p className="text-xs text-success flex items-center gap-xs mt-xs">
+                                <CheckCircle2 size={12} />
+                                <span className="truncate">{uploaded.name}</span>
+                              </p>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-sm shrink-0">
+                            <label className="text-sm text-accent underline cursor-pointer">
+                              {uploaded ? "Replace" : "Upload"}
+                              <input
+                                type="file"
+                                className="sr-only"
+                                accept="image/*,application/pdf,.csv,.txt,.json,.zip"
+                                onChange={(e) => {
+                                  const file = e.target.files?.[0];
+                                  e.target.value = "";
+                                  if (file) void handleUpload(slot.id, file);
+                                }}
+                              />
+                            </label>
+                            {uploaded && (
+                              <button
+                                onClick={() =>
+                                  patch({
+                                    assets: session.assets.filter((a) => a.slot !== slot.id),
+                                  })
+                                }
+                                className="text-xs text-slate hover:text-error underline"
+                              >
+                                Remove
+                              </button>
+                            )}
+                          </div>
+                          {uploading === slot.id && (
+                            <span className="text-xs text-slate">Uploading…</span>
+                          )}
+                        </div>
+                      );
                     }
-                    onEdit={() => goToStep(1)}
-                  />
-                )}
-                {formData.budget && (
-                  <ReviewField
-                    label="Budget"
-                    value={
-                      budgetOptions.find((o) => o.value === formData.budget)
-                        ?.label ?? formData.budget
-                    }
-                    onEdit={() => goToStep(1)}
-                  />
+                  )}
+                </div>
+                {uploadError && (
+                  <p className="mt-sm text-xs text-amber">{uploadError}</p>
                 )}
               </div>
+            </div>
+          )}
+
+          {/* Step 3 — Get Priced */}
+          {step === 3 && (
+            <div className="py-xl text-center">
+              <div className="inline-block w-8 h-8 border-2 border-accent border-t-transparent rounded-full animate-spin mb-md" />
+              <p className="font-display text-md font-semibold text-ink mb-xs">
+                Analyzing project…
+              </p>
+              <p className="text-sm text-slate">
+                Working out the pages, components and complexity in your brief.
+              </p>
+            </div>
+          )}
+
+          {/* Step 4 — Price summary */}
+          {step === 4 && totals && (
+            <div>
+              <p className="text-sm text-slate mb-md">
+                One price for the build, one for the services that keep it running. Nothing is
+                metered, and there are no tokens to run out of.
+              </p>
+
+              <div className="border border-line rounded-sm p-lg mb-lg">
+                <p className="text-xs uppercase tracking-[0.14em] text-slate mb-sm">
+                  Your total
+                </p>
+                <p className="font-mono text-[36px] leading-[44px] text-ink">
+                  {formatUsd(totals.dueNowCents)}
+                </p>
+                <p className="text-xs text-slate mt-sm">
+                  {session.devFeeMode === "once"
+                    ? "One-time build fee paid in full (15% off), plus your first year of services."
+                    : `First of 12 monthly payments of ${formatUsd(
+                        totals.feePerMonthCents
+                      )}, plus your first year of services.`}
+                </p>
+              </div>
+
+              <div className="space-y-md mb-lg">
+                {/* Fee option */}
+                <div className="border border-line rounded-sm p-md">
+                  <p className="text-sm font-medium text-ink mb-sm">Development fee</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-sm">
+                    {(
+                      [
+                        { id: "once", label: "Pay once — 15% off", value: totals.feeOnceCents },
+                        {
+                          id: "installments",
+                          label: "12 monthly payments",
+                          value: totals.feePerMonthCents,
+                        },
+                      ] as const
+                    ).map((option) => (
+                      <label
+                        key={option.id}
+                        className={`block p-md border text-sm rounded-sm cursor-pointer transition-all duration-150 ${
+                          session.devFeeMode === option.id
+                            ? "border-accent bg-accent-dim text-ink"
+                            : "border-line text-slate hover:border-ink"
+                        }`}
+                      >
+                        <input
+                          type="radio"
+                          name="devFeeMode"
+                          checked={session.devFeeMode === option.id}
+                          onChange={() => patch({ devFeeMode: option.id })}
+                          className="sr-only"
+                        />
+                        <span className="block">{option.label}</span>
+                        <span className="font-mono text-xs">{formatUsd(option.value)}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Services cadence */}
+                <div className="border border-line rounded-sm p-md">
+                  <p className="text-sm font-medium text-ink mb-sm">Recurring services</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-sm">
+                    {(
+                      [
+                        {
+                          id: "annual",
+                          label: "Annually",
+                          value: totals.servicesAnnualCents,
+                          note: "Default",
+                        },
+                        {
+                          id: "monthly",
+                          label: "Monthly (+15%)",
+                          value: totals.servicesMonthlyCents,
+                          note: null,
+                        },
+                      ] as const
+                    ).map((option) => (
+                      <label
+                        key={option.id}
+                        className={`block p-md border text-sm rounded-sm cursor-pointer transition-all duration-150 ${
+                          session.cadence === option.id
+                            ? "border-accent bg-accent-dim text-ink"
+                            : "border-line text-slate hover:border-ink"
+                        }`}
+                      >
+                        <input
+                          type="radio"
+                          name="cadence"
+                          checked={session.cadence === option.id}
+                          onChange={() => patch({ cadence: option.id })}
+                          className="sr-only"
+                        />
+                        <span className="block">
+                          {option.label}
+                          {option.note && (
+                            <span className="text-xs text-slate"> · {option.note}</span>
+                          )}
+                        </span>
+                        <span className="font-mono text-xs">{formatUsd(option.value)}</span>
+                      </label>
+                    ))}
+                  </div>
+                  <p className="text-xs text-slate mt-sm">
+                    Renews at {formatUsd(totals.renewalCents)} a year. Hosting and backend are
+                    included and never itemised.
+                  </p>
+                </div>
+
+                {/* Add-ons */}
+                <div className="border border-line rounded-sm p-md">
+                  <div className="flex items-center justify-between gap-sm mb-sm">
+                    <p className="text-sm font-medium text-ink">Project services</p>
+                    <span className="font-mono text-xs text-slate">
+                      {formatUsd(totals.servicesAnnualCents)}/yr
+                    </span>
+                  </div>
+                  {session.addons.length === 0 ? (
+                    <p className="text-xs text-slate">
+                      Nothing extra was inferred from your brief.
+                    </p>
+                  ) : (
+                    <ul className="space-y-xs">
+                      {session.addons.map((id) => {
+                        const addon = ADDON_CATALOG.find((a) => a.id === id);
+                        return (
+                          <li
+                            key={id}
+                            className="flex items-center justify-between gap-sm text-sm text-slate"
+                          >
+                            <span>
+                              {addon?.label ?? id}
+                              <span className="text-xs text-slate"> · inferred for your build</span>
+                            </span>
+                            <button
+                              onClick={() => toggleAddon(id)}
+                              className="text-xs text-slate hover:text-error underline shrink-0"
+                            >
+                              Remove
+                            </button>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  )}
+                  <div className="mt-sm flex items-center gap-sm">
+                    <select
+                      value=""
+                      onChange={(e) => e.target.value && toggleAddon(e.target.value)}
+                      className={`${inputClass} max-w-[280px]`}
+                      aria-label="Add additional add-on"
+                    >
+                      <option value="">Add additional add-on…</option>
+                      {ADDON_CATALOG.filter((a) => !session.addons.includes(a.id)).map((a) => (
+                        <option key={a.id} value={a.id}>
+                          {a.label} — {a.example}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                {/* One-time services */}
+                {ONE_TIME_SERVICES.some(
+                  (s) =>
+                    s.id !== "domain-purchase" ||
+                    DOMAIN_CATEGORIES.includes(session.category)
+                ) && (
+                  <div className="border border-line rounded-sm p-md">
+                    <p className="text-sm font-medium text-ink mb-sm">One-time services</p>
+                    <div className="space-y-sm">
+                      {ONE_TIME_SERVICES.filter(
+                        (s) =>
+                          s.id !== "store-deployment" ||
+                          session.category === "app-development"
+                      )
+                        .filter(
+                          (s) =>
+                            s.id !== "domain-purchase" ||
+                            DOMAIN_CATEGORIES.includes(session.category)
+                        )
+                        .map((s) => (
+                          <label
+                            key={s.id}
+                            className="flex items-start justify-between gap-sm text-sm text-slate cursor-pointer"
+                          >
+                            <span className="flex items-start gap-sm">
+                              <input
+                                type="checkbox"
+                                checked={session.oneTimeServices.includes(s.id)}
+                                onChange={() => toggleOneTime(s.id)}
+                                className="mt-1 accent-accent"
+                              />
+                              <span>
+                                {s.label}
+                                <span className="block text-xs text-slate">{s.note}</span>
+                              </span>
+                            </span>
+                            <span className="font-mono text-xs shrink-0">
+                              {formatUsd(s.cents)}
+                            </span>
+                          </label>
+                        ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {estimate && (
+                <details className="mb-lg text-xs text-slate">
+                  <summary className="cursor-pointer hover:text-ink">
+                    How this was worked out
+                  </summary>
+                  <ul className="mt-sm space-y-xs">
+                    <li>
+                      {estimate.pages} pages · {estimate.components} components/models ·{" "}
+                      {estimate.complexity} complexity
+                    </li>
+                    {estimate.signals.slice(0, 6).map((signal) => (
+                      <li key={signal}>{signal}</li>
+                    ))}
+                  </ul>
+                </details>
+              )}
+
+              {pricingSource === "local" && (
+                <p className="mb-lg text-xs text-amber">
+                  Priced on this device — we&apos;ll confirm the total when you pay.
+                </p>
+              )}
             </div>
           )}
         </motion.div>
       </AnimatePresence>
 
-      {/* Network error */}
       {networkError && (
         <div
           role="alert"
@@ -494,64 +986,38 @@ export default function QuotePage() {
         </div>
       )}
 
-      {/* Navigation */}
-      <div className="flex items-center justify-between mt-xl">
-        {step > 0 ? (
-          <Button variant="ghost" onClick={() => goToStep(step - 1)}>
-            Back
-          </Button>
-        ) : (
-          <div />
-        )}
+      {step !== 3 && (
+        <div className="flex items-center justify-between mt-xl">
+          {step > 0 ? (
+            <Button variant="ghost" onClick={() => goToStep(step - 1)}>
+              Back
+            </Button>
+          ) : (
+            <div />
+          )}
 
-        {step < 2 ? (
-          <Button
-            disabled={!canContinue}
-            onClick={() => {
-              if (step === 1 && !formData.description.trim()) {
-                setDescriptionError("Please describe your project to continue.");
-                return;
-              }
-              goToStep(step + 1);
-            }}
-          >
-            Continue
-          </Button>
-        ) : (
-          <Button
-            disabled={!formData.description.trim()}
-            loading={generating}
-            onClick={handleGenerate}
-          >
-            Get Priced
-          </Button>
-        )}
-      </div>
-    </div>
-  );
-}
+          {step < 3 && (
+            <Button
+              disabled={!canContinue}
+              onClick={() => {
+                if (step === 2 && session.brief.trim().length < 20) {
+                  setBriefError("A sentence or two more, so we can price it properly.");
+                  return;
+                }
+                goToStep(step + 1);
+              }}
+            >
+              Continue
+            </Button>
+          )}
 
-function ReviewField({
-  label,
-  value,
-  onEdit,
-}: {
-  label: string;
-  value: string;
-  onEdit: () => void;
-}) {
-  return (
-    <div className="flex items-start justify-between gap-sm">
-      <div className="min-w-0">
-        <p className="text-xs text-slate">{label}</p>
-        <p className="text-sm text-ink truncate">{value}</p>
-      </div>
-      <button
-        onClick={onEdit}
-        className="shrink-0 text-xs text-accent hover:text-accent-hover transition-colors duration-150"
-      >
-        Edit
-      </button>
+          {step === 4 && (
+            <Button onClick={proceedToPayment} disabled={!totals?.dueNowCents}>
+              Proceed to Payment
+            </Button>
+          )}
+        </div>
+      )}
     </div>
   );
 }

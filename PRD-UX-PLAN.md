@@ -184,9 +184,14 @@ Landing doc: new CSS uses the existing custom props (`--text-primary`, `--text-s
 Rewrite `src/app/quote/page.tsx` (keep `DimensionLine`, motion curve, `localStorage` key `techrepubliq-quote-session`):
 1. **Category** (7 cards) → 2. **Tier & scale** (4 tier cards + the 5 PRD metrics, used only to recommend) → 3. **Brief & assets** (business brief, logo + category assets → R2; domain choice for web/app) → 4. **Get Priced** (loading *"Analyzing project…"*, heuristic engine infers add-ons) → 5. **Price summary** (one total, no line items; annual default / monthly = ×1.15÷12; **Add additional add-on** dropdown; one-time services; **Proceed to Payment**).
 - **Enterprise** short-circuits to the Contact Sales form (§14), never a price.
-- `src/app/quote/result/page.tsx` → becomes the price-summary route; drop the human-review toggle and the invoice detour.
-- **New** `POST /api/uploads` → R2; intake stores keys.
-- **Rewrite** `quotes.generate()` → `{category, tierId, brief, assets, metrics, domainOption, cadence, addons}`; persist the breakdown, **return only the single total**.
+- `src/app/quote/result/page.tsx` → **deleted**; the price summary is step 5 of `/quote`, which keeps the flow in one place.
+- **New** `POST /api/uploads` → R2 (`ASSETS` binding, 10 MB cap, key `intake/<id>/<file>`); intake stores keys.
+- **Rewrite** `quotes.generate()` → `{category, tierId, brief, pages, components, complexity, metrics, assets, domainOption, cadence, devFeeMode, addons, oneTimeServices}`; the server clamps the estimate, filters unknown ids, recomputes every amount, and returns **the four option totals** (`onceAnnual`, `onceMonthly`, `installAnnual`, `installMonthly`) — never a per-unit breakdown (§4.4).
+
+**Shipped in PR 3 — notes for later**
+- The summary screen composes its displayed total **locally** from the same model, so the fee/cadence and add-on toggles are instant. The server is the authority at payment time (PR 4 recomputes against the stored reference). Verified: client and server produce identical figures.
+- If the API is unreachable the flow still prices on-device and labels it *"Priced on this device — we'll confirm the total when you pay."* That keeps the funnel alive; it is not a payment path.
+- `?category=` (from every service page) and `?tier=` (from the landing tier cards) pre-select the first two steps — the loose end from PR 1 is closed.
 
 ---
 
@@ -205,7 +210,7 @@ See §10 (architecture) and §11 (installments). Summary of edits:
 
 ### WP5 — Dashboard: Projects / Subscriptions / Service Center + project tabs
 
-**DB** — new `workers/api/migrations/0004_projects.sql` (fresh tables; historical `orders`/`quotes` untouched, §15):
+**DB** — new `workers/api/migrations/0005_projects.sql` (fresh tables; historical `orders`/`quotes` untouched, §15):
 `projects(id, customer_id, name, category, tier_id, status ∈ {Queued, In preview, Live}, zone_id, rum_site_tag, preview_url, custom_domain, launch_at, dev_fee_cents, cadence)` ·
 `project_services(id, project_id, name, kind, monthly_cents, status ∈ {Active, Cancel at renewal, Grace period}, renews_on, grace_until)` ·
 `revisions(project_id, included, used, purchased)` ·
@@ -260,7 +265,7 @@ See §10 (architecture) and §11 (installments). Summary of edits:
 | 4 | **Enterprise "Contact Sales" = form** | Lead form + `contact_sales_leads` + email; Enterprise never shows a number anywhere (§14) |
 | 5 | **Final categories = 7:** Web Development, App Development, AI Automation, AI Integration, Training, Optimization, **Web/App Management**; `web-ui-design` **retired** | Slug set updated in `utils.ts`, `workers/api/src/routes/quotes.ts`, nav/footer, landing `SERVICES`; redirect for the retired slug |
 | 6 | **Subdomain previews, APK builds, App Store/Play deployment are real capabilities** | Build the §9 UI for real: Preview/Launch/Go Live, mobile UI-UX preview → APK → store deployment |
-| 7 | **Leave historical data; start fresh** | New `0004_projects.sql` tables; old `orders`/`quotes` remain readable; dashboard keeps a "Past orders" view (§15) |
+| 7 | **Leave historical data; start fresh** | New `0005_projects.sql` tables (0004 taken by `contact_sales` in PR 3); old `orders`/`quotes` remain readable; dashboard keeps a "Past orders" view (§15) |
 | 8 | **Per-project Email Center is deliverable now** | Email tab ships for real (inbox/sent/compose on the project's domain address) (§13) |
 | 9 | **Analytics from Cloudflare** (all sites deployed/managed there) | Analytics tab reads Cloudflare GraphQL only — designed against what Cloudflare actually exposes (§12) |
 | 10 | **FX: an API on a cron** (not an admin-set rate) | Cron Worker pulls USD→NGN into `fx_rates`; checkout locks the rate it used (§10) |
@@ -455,12 +460,13 @@ Rules
 
 - Tier card shows **"Contact Sales"** with no figure; selecting it opens a form (name, company email, company, business stage, expected scale, notes) → `POST /api/contact-sales` → row in `contact_sales_leads` **and** an email with every submitted field to **admin@techrepubliq.com** (decision 14), plus a short auto-acknowledgement to the customer. Same inbox receives Enterprise leads from the landing `#tiers` card and `/quote?tier=enterprise`.
 - Every price surface (landing tiers, quote summary, checkout, pricing page) shows "Contact Sales" for Enterprise — never a number, never a "Get Priced" result.
+- **Shipped in PR 3:** `workers/api/src/routes/contactSales.ts` (`POST /api/contact-sales`) → `contact_sales_leads` (migration `0004_contact_sales.sql`) → `sendContactSalesEmail` to admin@techrepubliq.com with every submitted field + `sendContactSalesAck` to the customer. `src/components/ContactSalesForm.tsx` is reused by the Enterprise short-circuit in `/quote` and by `/quote?tier=enterprise`. The route never returns a price; for the Enterprise tier the pricing response carries `contactSales: true` and null totals.
 
 ---
 
 ## 15. Historical data stance
 
-- Ship `0004_projects.sql` as **new tables**; do not migrate or reshape existing `orders`/`quotes`/`migration_requests` rows.
+- Ship `0005_projects.sql` as **new tables**; do not migrate or reshape existing `orders`/`quotes`/`migration_requests` rows.
 - Dashboard "Orders" splits into **Projects** (new model) and **Past orders** (read-only, existing `api.orders.list()` / `/dashboard/orders/[id]`).
 - Quote references (`QR-…`) remain valid for historical lookups; new intakes use the same `QR-` prefix so nothing looks foreign.
 
@@ -489,6 +495,8 @@ PRs 1 and 2 are independent. None touches the OBJ or GIF-panel code.
 3. **Confirm the 17.6%/15% arithmetic** on the fee (§11) — the discount is applied to the installment total; flip `ONE_TIME_DISCOUNT` if you meant the other anchor.
 4. **Zone plan sign-off** (§12.5): confirm Free-by-default with Business as a per-project paid upgrade, and the offboarding clause for customer-owned registrars.
 5. **Does the upgrade nudge need a bandwidth half?** Requests/day is the metric; bandwidth is currently display-only.
+6. **R2 bucket `techrepubliq-assets` must exist before deploying PR 3** — `wrangler.toml` now declares the `ASSETS` binding (it was in `Env` but never bound), and uploads will fail until the bucket exists in the account.
+7. **`FROM_EMAIL` is an unset secret in local dev** — outbound mail no-ops with a logged error until it's set. Pre-existing, but it means the Contact Sales emails are untested against a real inbox.
 
 Everything else from the first round is resolved in §9.
 

@@ -269,6 +269,22 @@ export const BUSINESS_STAGES = [
   { id: "large", label: "Large organization" },
 ] as const;
 
+/** PRD §2 — domain handling, web and app categories only. */
+export const DOMAIN_OPTIONS = [
+  {
+    id: "have",
+    label: "I already have a domain",
+    note: "We'll send you the DNS details to point it at us. Hosting and backend are included either way.",
+  },
+  {
+    id: "buy",
+    label: "Register one through TechRepubliQ",
+    note: "Added to your order as a one-time service.",
+  },
+] as const;
+
+export type DomainOptionId = (typeof DOMAIN_OPTIONS)[number]["id"];
+
 export const INTAKE_METRICS = [
   {
     id: "requestsPerDay",
