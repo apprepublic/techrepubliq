@@ -192,6 +192,7 @@ Rewrite `src/app/quote/page.tsx` (keep `DimensionLine`, motion curve, `localStor
 - The summary screen composes its displayed total **locally** from the same model, so the fee/cadence and add-on toggles are instant. The server is the authority at payment time (PR 4 recomputes against the stored reference). Verified: client and server produce identical figures.
 - If the API is unreachable the flow still prices on-device and labels it *"Priced on this device — we'll confirm the total when you pay."* That keeps the funnel alive; it is not a payment path.
 - `?category=` (from every service page) and `?tier=` (from the landing tier cards) pre-select the first two steps — the loose end from PR 1 is closed.
+- **R2 is provisioned (2026-09-15):** bucket `techrepubliq-assets`, Standard class, bound in `wrangler.toml` as `ASSETS` (the binding alias is ours; only `bucket_name` must match the bucket). It is private — intake assets are readable only through the Worker, which is what §7's confidentiality rule wants. Revisit the storage class if intake volume grows; Infrequent Access suits write-once assets but isn't worth it at current volume.
 
 ---
 
@@ -495,8 +496,7 @@ PRs 1 and 2 are independent. None touches the OBJ or GIF-panel code.
 3. **Confirm the 17.6%/15% arithmetic** on the fee (§11) — the discount is applied to the installment total; flip `ONE_TIME_DISCOUNT` if you meant the other anchor.
 4. **Zone plan sign-off** (§12.5): confirm Free-by-default with Business as a per-project paid upgrade, and the offboarding clause for customer-owned registrars.
 5. **Does the upgrade nudge need a bandwidth half?** Requests/day is the metric; bandwidth is currently display-only.
-6. **R2 bucket `techrepubliq-assets` must exist before deploying PR 3** — `wrangler.toml` now declares the `ASSETS` binding (it was in `Env` but never bound), and uploads will fail until the bucket exists in the account.
-7. **`FROM_EMAIL` is an unset secret in local dev** — outbound mail no-ops with a logged error until it's set. Pre-existing, but it means the Contact Sales emails are untested against a real inbox.
+6. **`FROM_EMAIL` is an unset secret in local dev** — outbound mail no-ops with a logged error until it's set. Pre-existing, but it means the Contact Sales emails are untested against a real inbox.
 
 Everything else from the first round is resolved in §9.
 
