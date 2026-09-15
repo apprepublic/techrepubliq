@@ -755,7 +755,7 @@ export default function QuotePage() {
                 </p>
                 <p className="text-xs text-slate mt-sm">
                   {session.devFeeMode === "once"
-                    ? "One-time build fee paid in full (15% off), plus your first year of services."
+                    ? "Build fee paid in full — 15% less than spreading it — plus your first year of services."
                     : `First of 12 monthly payments of ${formatUsd(
                         totals.feePerMonthCents
                       )}, plus your first year of services.`}

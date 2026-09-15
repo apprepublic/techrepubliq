@@ -277,6 +277,8 @@ See §10 (architecture) and §11 (installments). Summary of edits:
 | 15 | **Tier limits measured in requests/day** | Ladder 10k / 100k / 1M requests per day; nudge only, never enforce (§12.7) |
 | 16 | **The 15% swing on the fee is a discount on paying once, not interest on installments** | Fee = 12 even payments; paying in one go takes 15% off (§11) |
 | 17 | **Customer domains are zones in OUR Cloudflare account** | We own and pay for the zone, query analytics with one token, and need an offboarding path (§12.5) |
+| 18 | **Keep PRD §4.2's rates — don't renegotiate them** | Fees land in the $500–$2,000 band; the cheaper positioning is deliberate, not an accident |
+| 19 | **Lead with the work, not the price** | Browsing surfaces sell speed, reliability, scalability and functionality; money is spelled out on `/pricing` and at checkout only (§19) |
 
 ---
 
@@ -316,7 +318,7 @@ workers/api/src/payments/resolve.ts  resolveProvider(country, currency)
 - `installment_plans(project_id, total_cents, currency, count, interval, started_at, status)`; `installments(id, plan_id, seq, due_at, amount_cents, status ∈ {Scheduled, Paid, Due, Grace, Failed}, attempts, paid_at)`.
 - **Decision 11 — twelve even monthly payments.** The one-time development fee splits into **12 equal monthly payments**; payment 1 is taken at checkout, the remaining 11 on monthly anniversaries. Splitting rule in integer cents: `base = floor(totalCents / 12)`, and the first `totalCents − 12 × base` payments get **+1 cent** so the twelve sum to the fee exactly.
 - **Decision 16 — the discount sits on the one-time payment, not as interest on the installments.** The engine's figure *is* the 12-month total; paying the fee in one go takes **15% off** (`ONE_TIME_DISCOUNT`), and the 12 payments stay at `total ÷ 12` with nothing added. No deposit, no first-payment premium.
-  - Arithmetic note: a 15% discount off the installment total means spreading costs **1 ÷ 0.85 ≈ 17.6%** more than paying once. If you want "installments cost exactly 15% more than one-time", set `ONE_TIME_DISCOUNT = 0.15 / 1.15 ≈ 0.1304` in `src/lib/product.ts` — one constant, nothing else changes.
+  - **Arithmetic, accepted (2026-09-15):** a 15% discount off the installment total means spreading costs **1 ÷ 0.85 ≈ 17.6%** more than paying once. The founder's framing is "priced once; splitting it carries a 15% swing" — read the way PRD §4.7 reads its own 15%, the same swing described from opposite ends. The customer-facing line is always **"15% off when you pay once"**, never a surcharge on the installments. If the inverse ever needs to be exactly 15%, set `ONE_TIME_DISCOUNT = 0.15 / 1.15 ≈ 0.1304` in `src/lib/product.ts` — one constant, nothing else changes.
 - Cadence selector (annual/monthly +15%) stays on the **services** part of the order summary, clearly separated from the fee schedule.
 - First installment is charged at checkout through the customer's rail; the rest are charged from the **saved method** on due dates by a **Cron Worker** (`chargeSaved`).
 - **Grace:** on failure → status `Grace`, service continues 7 days, reminder emails on days 1/3/5/7 (PRD §4.5), then dunning: the affected **add-on services** are removed — the project itself is never deleted mid-build.
@@ -491,12 +493,11 @@ PRs 1 and 2 are independent. None touches the OBJ or GIF-panel code.
 
 ## 17. Remaining open items
 
-1. **Development-fee calibration** (new, from PR 2): with PRD §4.2's rates ($500 + $3/page + $3/component), realistic briefs land at **$500–$2,000** — well under the $2,500+ the old site advertised. Options: (a) keep the rates and widen `COMPLEXITY` multipliers in `src/lib/product.ts` (one-line change), (b) renegotiate the rates, or (c) accept the lower band as the new positioning. Needs your call before the engine goes live in PR 3.
-2. **Which FX API** for the USD→NGN cron (§10) — provider is interchangeable, just needs a USD→NGN endpoint and a sane rate limit.
-3. **Confirm the 17.6%/15% arithmetic** on the fee (§11) — the discount is applied to the installment total; flip `ONE_TIME_DISCOUNT` if you meant the other anchor.
-4. **Zone plan sign-off** (§12.5): confirm Free-by-default with Business as a per-project paid upgrade, and the offboarding clause for customer-owned registrars.
-5. **Does the upgrade nudge need a bandwidth half?** Requests/day is the metric; bandwidth is currently display-only.
-6. **`FROM_EMAIL` is an unset secret in local dev** — outbound mail no-ops with a logged error until it's set. Pre-existing, but it means the Contact Sales emails are untested against a real inbox.
+1. **Which FX API** for the USD→NGN cron (§10) — provider is interchangeable, just needs a USD→NGN endpoint and a sane rate limit.
+2. **Zone plan sign-off** (§12.5): confirm Free-by-default with Business as a per-project paid upgrade, and the offboarding clause for customer-owned registrars.
+3. **Does the upgrade nudge need a bandwidth half?** Requests/day is the metric; bandwidth is currently display-only.
+4. **`FROM_EMAIL` is an unset secret in local dev** — outbound mail no-ops with a logged error until it's set. Pre-existing, but it means the Contact Sales emails are untested against a real inbox.
+5. **`/pricing` payment-methods copy is deliberately ahead of the code** — it says USD by card; Stripe and PayPal land in PR 4, so update that answer then.
 
 Everything else from the first round is resolved in §9.
 
@@ -527,3 +528,31 @@ grep -rnE "#[0-9A-Fa-f]{6}" src/ --include=*.tsx --include=*.ts | grep -v "src/a
 - [ ] Paystack + Stripe + PayPal happy paths and webhook signature verification (incl. `charge_authorization` for installments)
 - [ ] Analytics: 429/backoff path, `notOlderThan`-driven date presets, "estimated" chip when `sampleInterval > 1`
 - [ ] `npm ci && npx tsc --noEmit && npm run lint && npm run build`
+
+---
+
+## 19. Messaging rule (decision 19)
+
+**Browsing surfaces lead with the work. The money is explained where someone is deciding to pay.**
+
+The old copy leaned on being cheap — "Priced once", a one-time-fee trust chip, tier prices on the landing, "No tokens. No metering." That put the pitch on price instead of on what the customer actually buys. PRD v2.5's positioning note says the same thing: *cost is something the customer arrives at as a natural output of describing their project, not the headline.*
+
+**Where value leads (efficiency · speed · reliability · scalability · functionality)**
+- Landing: hero, trust chips, services, the reworked stages section, the process band, CTA, footer.
+- `/services` and every `/services/<slug>`: outcomes, what's included, how it's scoped and built.
+- No "from $X" figures on browsing pages, and no rate card ($500 + $3/page + $3/component) outside `/pricing`.
+- Stage cards show **capability** (10k / 100k / 1M requests a day), not monthly prices.
+
+**Where the money is spelled out — deliberately**
+- `/pricing`: the fee formula, payment options, cadence, grace period, and the no-refunds policy.
+- The `/quote` summary and checkout: totals, fee option, cadence, one-time services, add-ons.
+- In-app nudges: renewal dates, grace-period countdowns, upgrade suggestions.
+
+**Copy rules**
+1. Say what it does before what it costs.
+2. Never promise a timeline, an SLA or a vendor we can't honour.
+3. Don't disclose vendors (§7) — cumulative line items only.
+4. "Priced once" is dead as a headline. Use it only where the *mechanic* is being explained.
+5. Terminology stays: Get Started · Get Priced · one-time development fee · Project Services · pre-launch reviews · grace period.
+
+---

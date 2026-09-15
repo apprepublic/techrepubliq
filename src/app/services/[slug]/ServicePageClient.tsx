@@ -7,12 +7,7 @@ import { CornerBracketFrame } from "@/components/CornerBracketFrame";
 import { Accordion } from "@/components/Accordion";
 import { Button } from "@/components/Button";
 import { motion } from "motion/react";
-import {
-  BASE_DEV_FEE_CENTS,
-  RATE_PER_COMPONENT_CENTS,
-  RATE_PER_PAGE_CENTS,
-  formatUsd,
-} from "@/lib/product";
+
 
 export default function ServicePageClient({ slug }: { slug: string }) {
   const router = useRouter();
@@ -88,7 +83,7 @@ export default function ServicePageClient({ slug }: { slug: string }) {
 
             <div className="mt-xl pt-xl border-t border-line">
               <h3 className="font-display text-md font-semibold text-ink mb-md">
-                How it&apos;s priced and built
+                How it&apos;s scoped and built
               </h3>
               <ol className="space-y-sm mb-lg">
                 {service.process.map((step, i) => (
@@ -102,16 +97,20 @@ export default function ServicePageClient({ slug }: { slug: string }) {
               </ol>
               <div className="p-lg border border-line rounded-sm">
                 <p className="font-mono text-xs uppercase tracking-[0.14em] text-accent mb-sm">
-                  One-time development fee
+                  Scoped, then priced
                 </p>
                 <p className="text-sm leading-relaxed text-slate mb-sm">
-                  {formatUsd(BASE_DEV_FEE_CENTS)} base, plus {formatUsd(RATE_PER_PAGE_CENTS)} per
-                  page and {formatUsd(RATE_PER_COMPONENT_CENTS)} per component, adjusted for
-                  complexity. The same math at every tier — you see one total, not a breakdown.
+                  We read your brief and work out the pages, the components and the complexity
+                  behind it. You get one number before anything starts, and it doesn&apos;t move
+                  unless the scope does.
                 </p>
                 <p className="text-sm leading-relaxed text-slate">
-                  Pay it in one go and take 15% off, or spread it across 12 even monthly
-                  payments. Hosting and backend are included either way.
+                  It can be paid in one go or spread across 12 monthly payments — the full
+                  mechanics are on our{" "}
+                  <Link href="/pricing" className="text-accent hover:underline no-underline">
+                    pricing page
+                  </Link>
+                  .
                 </p>
               </div>
             </div>
@@ -147,21 +146,21 @@ export default function ServicePageClient({ slug }: { slug: string }) {
         <div className="lg:w-[360px] shrink-0">
           <div className="lg:sticky lg:top-24">
             <CornerBracketFrame className="bg-accent-dim">
-              <p className="text-sm text-slate mb-sm">Priced from your brief</p>
+              <p className="text-sm text-slate mb-sm">Scoped from your brief</p>
               <p className="font-mono text-[28px] leading-[36px] font-medium text-ink mb-xs">
-                From {formatUsd(service.fromCents)}
+                One upfront price
               </p>
               <p className="text-xs text-slate mb-lg">
-                One-time development fee. Your price is computed from your brief — pages,
-                components and complexity.
+                We work out the pages, components and complexity in your brief and come back with a
+                single number before anything starts.
               </p>
               <Button className="w-full" onClick={() => router.push(`/quote?category=${service.slug}`)}>
                 Get Started
               </Button>
               <ul className="mt-md space-y-xs text-xs text-slate">
                 <li>Hosting &amp; backend included</li>
-                <li>12 monthly payments, or 15% off paid once</li>
-                <li>Pre-launch review rounds included</li>
+                <li>Review rounds before launch</li>
+                <li>Maintained by the team that built it</li>
               </ul>
             </CornerBracketFrame>
           </div>

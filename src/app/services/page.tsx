@@ -6,14 +6,7 @@ import { Accordion } from "@/components/Accordion";
 import { Button } from "@/components/Button";
 import { CornerBracketFrame } from "@/components/CornerBracketFrame";
 import { services } from "@/lib/services";
-import {
-  BASE_DEV_FEE_CENTS,
-  RATE_PER_COMPONENT_CENTS,
-  RATE_PER_PAGE_CENTS,
-  TIERS,
-  formatUsd,
-  revisionLabel,
-} from "@/lib/product";
+import { TIERS, revisionLabel } from "@/lib/product";
 
 const journey = [
   { n: "01", title: "Get Started", body: "Pick a category and a tier." },
@@ -24,29 +17,39 @@ const journey = [
   { n: "06", title: "Manage", body: "Services, analytics and edits from your dashboard." },
 ];
 
-const pricingFaq = [
+const deliveryFaq = [
   {
-    question: "How is the one-time development fee worked out?",
-    answer: `${formatUsd(BASE_DEV_FEE_CENTS)} base, plus ${formatUsd(RATE_PER_PAGE_CENTS)} per page and ${formatUsd(
-      RATE_PER_COMPONENT_CENTS
-    )} per component, adjusted for complexity. It is the same math at every tier — tiers scale the recurring services, never the build fee.`,
+    question: "How long does it take?",
+    answer:
+      "It depends on scope, and you'll get a timeline alongside your price — most projects run from a few weeks upwards. You see both before you commit to anything.",
   },
   {
-    question: "Can I pay the fee over time?",
+    question: "Who actually builds it?",
     answer:
-      "Yes. The fee splits into 12 even monthly payments, with the first taken at checkout. Paying it in one go takes 15% off.",
+      "A real team — designers, engineers and reviewers — not an autonomous agent. Every project includes review rounds before launch, so you sign off on what goes live.",
   },
   {
-    question: "What is included that I don't have to arrange?",
+    question: "Do I have to arrange hosting?",
     answer:
-      "Hosting and backend are always provided by TechRepubliQ, whether you bring your own domain or buy one through us. Domain registration is optional and priced as a one-time service.",
+      "No. Hosting and backend are always provided by TechRepubliQ, whether you bring your own domain or register one through us.",
   },
   {
-    question: "Can I change my tier later?",
+    question: "What happens after launch?",
     answer:
-      "Tiers can be upgraded at any time and are never downgraded. When a project nears its tier's limits we'll tell you in the dashboard and by email.",
+      "Your project stays monitored and maintained. Changes can be quoted individually or covered by a monthly plan, and you can add services from your dashboard.",
+  },
+  {
+    question: "Can I change my stage later?",
+    answer:
+      "Stages can be upgraded at any time and are never downgraded. When a project nears its limits we'll tell you in the dashboard and by email.",
   },
 ];
+
+function formatCount(value: number): string {
+  if (value >= 1000000) return `${value / 1000000}M`;
+  if (value >= 1000) return `${value / 1000}k`;
+  return String(value);
+}
 
 export default function ServicesPage() {
   return (
@@ -63,8 +66,8 @@ export default function ServicesPage() {
           From first sketch to a live, working product.
         </h1>
         <p className="text-base leading-relaxed text-slate max-w-[680px] mb-xl">
-          Seven ways to start. Every one of them ends the same way: a real team builds it,
-          you get one price before anything starts, and hosting and backend are included.
+          Seven ways to start. However you begin, it ends the same way: a real team builds it,
+          it ships tested and monitored, and hosting and backend stay handled.
         </p>
       </motion.div>
 
@@ -85,10 +88,7 @@ export default function ServicesPage() {
                 {service.title}
               </h2>
               <p className="text-sm leading-relaxed text-slate flex-1">{service.short}</p>
-              <p className="mt-md font-mono text-xs text-slate">
-                From {formatUsd(service.fromCents)}
-              </p>
-              <span className="mt-sm text-sm text-accent group-hover:underline">
+              <span className="mt-md text-sm text-accent group-hover:underline">
                 Get Started →
               </span>
             </Link>
@@ -99,23 +99,21 @@ export default function ServicesPage() {
       {/* How pricing works */}
       <section className="mb-xl">
         <h2 className="font-display text-[22px] leading-[30px] font-semibold text-ink mb-md">
-          How the price is worked out
+          How we work
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-md">
           {[
             {
-              label: "One development fee",
-              body: `${formatUsd(BASE_DEV_FEE_CENTS)} base + ${formatUsd(RATE_PER_PAGE_CENTS)} per page + ${formatUsd(
-                RATE_PER_COMPONENT_CENTS
-              )} per component, adjusted for complexity. Same math at every tier.`,
+              label: "Scoped before we start",
+              body: "You describe it, we work out the pages, the components and the complexity, and agree the scope in writing before a line of code is written.",
             },
             {
-              label: "Recurring services",
-              body: "Priced by your tier and billed annually by default. Monthly is available and costs 15% more.",
+              label: "Built and reviewed by people",
+              body: "A real team designs, builds and reviews your product. Review rounds are included before launch, so what goes live is what you signed off.",
             },
             {
-              label: "Hosting & backend included",
-              body: "Always ours to run, whether you bring your own domain or buy one through us. No vendor juggling.",
+              label: "Run by us afterwards",
+              body: "Hosting, backend, monitoring and updates stay with the team that built it. You don't get a vendor login to manage.",
             },
           ].map((card) => (
             <div key={card.label} className="p-lg border border-line rounded-sm">
@@ -131,11 +129,11 @@ export default function ServicesPage() {
       {/* Tiers */}
       <section className="mb-xl">
         <h2 className="font-display text-[22px] leading-[30px] font-semibold text-ink mb-sm">
-          Project tiers
+          Start where you are
         </h2>
         <p className="text-sm text-slate mb-md max-w-[680px]">
-          Tiers scale your recurring services — never the one-time build fee. They can be
-          upgraded at any time and are never downgraded.
+          Every project gets the same team and the same build standards. What changes as you grow
+          is headroom — traffic, email volume, and review rounds.
         </p>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-md">
           {TIERS.map((tier) => (
@@ -155,20 +153,23 @@ export default function ServicesPage() {
               </div>
               <p className="text-sm text-slate mb-md">{tier.for}</p>
               <p className="font-mono text-[24px] leading-[32px] text-ink mb-md">
-                {tier.monthlyCents === null ? "Contact Sales" : `$${tier.monthlyCents / 100}/mo`}
+                {tier.requestsPerDay === null ? (
+                  "Bespoke"
+                ) : (
+                  <>
+                    {formatCount(tier.requestsPerDay)}
+                    <span className="text-sm text-slate"> requests/day</span>
+                  </>
+                )}
               </p>
               <ul className="space-y-xs text-sm text-slate">
                 <li>{revisionLabel(tier.id)}</li>
-                <li>
-                  {tier.requestsPerDay === null
-                    ? "Traffic limits negotiated"
-                    : `Up to ${(tier.requestsPerDay / 1000).toLocaleString()}k requests/day`}
-                </li>
                 <li>
                   {tier.emailPerDay === null
                     ? "Email volume negotiated"
                     : `${tier.emailPerDay.toLocaleString()} emails/day`}
                 </li>
+                <li>Hosting, backend &amp; monitoring included</li>
               </ul>
               <div className="mt-md">
                 <Link
@@ -182,8 +183,11 @@ export default function ServicesPage() {
           ))}
         </div>
         <p className="mt-md text-xs text-slate">
-          Every tier includes hosting and backend. Enterprise pricing is scoped with you — no
-          figure is shown online.
+          Every stage includes hosting, backend and monitoring. Stages can be upgraded at any time
+          and are never downgraded.{" "}
+          <Link href="/pricing" className="text-accent hover:underline no-underline">
+            What each stage costs →
+          </Link>
         </p>
       </section>
 
@@ -206,9 +210,9 @@ export default function ServicesPage() {
       {/* Pricing FAQ */}
       <section className="mb-xl pt-xl border-t border-line">
         <h2 className="font-display text-[22px] leading-[30px] font-semibold text-ink mb-md">
-          Pricing questions
+          How it goes
         </h2>
-        <Accordion items={pricingFaq} />
+        <Accordion items={deliveryFaq} />
       </section>
 
       {/* CTA */}
@@ -219,7 +223,7 @@ export default function ServicesPage() {
               Ready to build? Get started.
             </h2>
             <p className="text-sm text-slate">
-              Describe your project and get one upfront price. No tokens, no metering.
+              Describe your project and we&apos;ll come back with scope, timeline and one number.
             </p>
           </div>
           <div className="flex flex-col sm:flex-row gap-sm shrink-0">

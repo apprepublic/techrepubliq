@@ -7,7 +7,7 @@ export function cn(...inputs: ClassValue[]) {
 
 export const siteConfig = {
   name: "TechRepubliQ",
-  tagline: "Your product, built by a real team. Priced once.",
+  tagline: "Your product, built by a real team. Built to scale.",
   email: "hello@techrepubliq.com",
   copyright: `© ${new Date().getFullYear()} TechRepubliQ. All rights reserved.`,
 };
