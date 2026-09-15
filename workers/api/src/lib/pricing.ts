@@ -111,6 +111,7 @@ export const COMPLEXITY = {
 export type ComplexityId = keyof typeof COMPLEXITY;
 
 export const MONTHLY_MARKUP = 0.15;
+/** No markup on installments — paying the fee in one go takes this off. Mirrors src/lib/product.ts. */
 export const ONE_TIME_DISCOUNT = 0.15;
 export const INSTALLMENT_MONTHS = 12;
 

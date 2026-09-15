@@ -54,7 +54,7 @@ const faqGroups = [
         id: "fee-options",
         question: "How can I pay the development fee?",
         answer:
-          "In one go, or spread across 12 even monthly payments with the first taken at checkout. Paying in one go costs 15% less than spreading it.",
+          "In one go, or spread across 12 even monthly payments with the first taken at checkout. The installments are just the fee divided by twelve — no interest, no markup. Paying in one go takes 15% off.",
       },
       {
         id: "recurring-cadence",

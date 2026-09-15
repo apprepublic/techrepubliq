@@ -231,13 +231,13 @@ export type ComplexityId = keyof typeof COMPLEXITY;
 export const MONTHLY_MARKUP = 0.15;
 
 /**
- * Decision 16 — the development fee is quoted as 12 even monthly payments; paying it
- * in one go takes 15% off. Same 15% swing as §4.7, expressed here as a discount on the
- * one-time price rather than interest on the installments.
+ * Decision 16 — the development fee is quoted as 12 even monthly payments, and paying it
+ * in one go takes 15% off. The installments carry no markup and no interest: they are
+ * simply the fee divided by twelve.
  *
- * Note for finance: because 0.85 is applied to the installment total, spreading the fee
- * costs 1/0.85 ≈ 17.6% more than paying once. If you want "installments cost exactly 15%
- * more than one-time", change ONE_TIME_DISCOUNT to (0.15 / 1.15) ≈ 0.1304 and nothing else.
+ * Note for finance: the discount is taken off the installment total, so the two figures
+ * differ by 1 ÷ 0.85 ≈ 17.6% when read the other way round. The customer-facing line is
+ * always "15% off when you pay once" — never a surcharge on the installments.
  */
 export const ONE_TIME_DISCOUNT = 0.15;
 export const INSTALLMENT_MONTHS = 12;
