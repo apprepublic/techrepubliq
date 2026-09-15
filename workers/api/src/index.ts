@@ -6,10 +6,14 @@ import { orders } from "./routes/orders";
 import { payments } from "./routes/payments";
 import { migrations } from "./routes/migrations";
 import { customers } from "./routes/customers";
+import { uploads } from "./routes/uploads";
+import { contactSales } from "./routes/contactSales";
 
 export interface Env {
   DB: D1Database;
   ASSETS: R2Bucket;
+  /** Where Enterprise/Contact Sales leads are delivered. Defaults to admin@techrepubliq.com. */
+  ADMIN_EMAIL?: string;
   PAYSTACK_SECRET_KEY: string;
   STRIPE_SECRET_KEY: string;
   JWT_SECRET: string;
@@ -30,6 +34,10 @@ router.post("/api/auth/resend-verification", auth.resendVerification);
 // Quotes
 router.post("/api/quotes/generate", quotes.generate);
 router.get("/api/quotes/:ref", quotes.get);
+
+// Intake assets (R2) + Enterprise leads
+router.post("/api/uploads", uploads.create);
+router.post("/api/contact-sales", contactSales.submit);
 
 // Orders
 router.get("/api/orders", orders.list);

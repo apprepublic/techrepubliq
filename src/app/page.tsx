@@ -112,6 +112,25 @@ export default function HomePage() {
           .service-icon { background: rgba(200,16,46,0.15) !important; }
           .service-icon svg { stroke: #FF8A80 !important; }
           
+          .service-link { color: #FF8A80 !important; }
+          .hero-trust span { color: #9C99AC !important; border-color: #242233 !important; }
+          .hero .btn-ghost-dark { color: #F7F6FA !important; border-color: #242233 !important; }
+          .cta .btn-ghost-light, .preview .btn-ghost-light { color: #F7F6FA !important; border-color: #242233 !important; }
+
+          /* ===== TIERS - DARK MODE ===== */
+          .tiers { background: transparent !important; }
+          .tiers .section-head h2 { color: #F7F6FA !important; }
+          .tiers .section-head p { color: #9C99AC !important; }
+          .tiers .section-head .eyebrow { color: #FF8A80 !important; background: rgba(200,16,46,0.12) !important; border-color: rgba(200,16,46,0.35) !important; }
+          .tier-card { background: rgba(26,24,40,0.8) !important; border: 1px solid rgba(255,255,255,0.08) !important; box-shadow: 0 8px 32px rgba(0,0,0,0.3) !important; }
+          .tier-card.featured { border-color: rgba(255,138,128,0.6) !important; }
+          .tier-name { color: #F7F6FA !important; }
+          .tier-for { color: #9C99AC !important; }
+          .tier-price { color: #F7F6FA !important; }
+          .tier-price span { color: #9C99AC !important; }
+          .tier-rev { color: #9C99AC !important; }
+          .tier-note { color: #9C99AC !important; }
+
           .process { background: transparent !important; color: #F7F6FA !important; }
           .process .section-head .eyebrow { color: #FF8A80 !important; background: rgba(200,16,46,0.12) !important; border-color: rgba(200,16,46,0.35) !important; }
           .process .section-head h2 { color: #F7F6FA !important; }
@@ -236,6 +255,25 @@ export default function HomePage() {
           .service-icon { background: #FBE2E4 !important; }
           .service-icon svg { stroke: #C8102E !important; }
           
+          .service-link { color: #C8102E !important; }
+          .hero-trust span { color: #6B6876 !important; border-color: #E8E6F0 !important; }
+          .hero .btn-ghost-dark { color: #14121F !important; border-color: #E8E6F0 !important; }
+          .cta .btn-ghost-light, .preview .btn-ghost-light { color: #14121F !important; border-color: #E8E6F0 !important; }
+
+          /* ===== TIERS - LIGHT MODE ===== */
+          .tiers { background: transparent !important; }
+          .tiers .section-head h2 { color: #14121F !important; }
+          .tiers .section-head p { color: #6B6876 !important; }
+          .tiers .section-head .eyebrow { background: #FBE2E4 !important; color: #C8102E !important; }
+          .tier-card { background: rgba(255,255,255,0.85) !important; border: 1px solid rgba(255,255,255,0.8) !important; box-shadow: 0 4px 16px rgba(20,18,31,0.06) !important; }
+          .tier-card.featured { border-color: #C8102E !important; }
+          .tier-name { color: #14121F !important; }
+          .tier-for { color: #6B6876 !important; }
+          .tier-price { color: #14121F !important; }
+          .tier-price span { color: #6B6876 !important; }
+          .tier-rev { color: #6B6876 !important; }
+          .tier-note { color: #6B6876 !important; }
+
           .process { background: transparent !important; color: #14121F !important; }
           .process .section-head h2 { color: #14121F !important; }
           .process .section-head p { color: #6B6876 !important; }

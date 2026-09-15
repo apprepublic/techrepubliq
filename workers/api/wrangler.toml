@@ -8,5 +8,10 @@ binding = "DB"
 database_name = "techrepubliq"
 database_id = "632bb22e-8195-41bd-a817-4b449edba557"
 
+# Intake assets (logos, briefs, sample data) uploaded from the quote flow.
+[[r2_buckets]]
+binding = "ASSETS"
+bucket_name = "techrepubliq-assets"
+
 [[send_email]]
 name = "SEND_EMAIL"
