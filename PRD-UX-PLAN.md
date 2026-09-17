@@ -541,6 +541,16 @@ PRs 1 and 2 are independent. None touches the OBJ or GIF-panel code.
 8. **Inbound email needs an operator step.** Each project domain needs a Cloudflare Email Routing rule pointing at this Worker before any inbox receives anything, and the domain needs to be authorised to send before compose works. Both should be provisioned at launch alongside the zone, not configured by hand per customer.
 9. **No zone plan has been chosen for real** (§12.5). The code reads `notOlderThan` per zone at runtime and disables whichever date preset the plan can't serve, so the Free-vs-Business call doesn't block shipping — but it does decide how far back customers can look.
 10. ~~**`next@15.1.7` has a published security vulnerability** (CVE-2025-66478).~~ **Resolved — upgraded to 15.5.25**, the latest 15.x. Verified: all 30 routes still prerender under `output: "export"`, every page returns 200, the three.js chunk is still in the `/about` bundle, and the guardrail fingerprints on the OBJ script and GIF panel are unchanged.
+
+    A follow-on, so it isn't rediscovered: a clean install then reported two more
+    advisories — four postcss CVEs, all affecting `<=8.5.22`. Our own toolchain was
+    already on patched 8.5.28; the vulnerable copy is the exact `postcss@8.4.31` pin
+    **inside** `next@15.5.25`, which npm cannot dedupe upward by itself. Closed with
+    `"overrides": { "postcss": "$postcss" }` in `package.json` — both copies now resolve
+    to 8.5.28 and `npm audit` reports 0. **Do not "fix" this by upgrading to Next 16**:
+    npm's `audit fix --force` recommends `next@16.3.5`, a breaking major, to clear a
+    build-time CSS dependency. The `$` is required — a bare version range conflicts with
+    our direct devDependency and npm refuses with `EOVERRIDE`.
 11. **Remote D1 migrations are unverified.** All ten files (`0001`–`0010_email`) apply cleanly to a local database; nobody has confirmed whether any of them were ever applied to the production database `632bb22e…`. Check with `wrangler d1 migrations list techrepubliq --remote` before deploy.
 
 Everything else from the first round is resolved in §9.
