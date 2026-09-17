@@ -9,8 +9,9 @@ import { formatMoney } from "@/lib/payments/provider";
 import { cn } from "@/lib/utils";
 import { EditsTab } from "@/components/dashboard/EditsTab";
 import { AnalyticsTab } from "@/components/dashboard/AnalyticsTab";
+import { EmailTab } from "@/components/dashboard/EmailTab";
 
-type Tab = "preview" | "services" | "edits" | "analytics" | "database";
+type Tab = "preview" | "services" | "edits" | "analytics" | "database" | "email";
 
 const TABS: { id: Tab; label: string }[] = [
   { id: "preview", label: "Preview" },
@@ -19,6 +20,9 @@ const TABS: { id: Tab; label: string }[] = [
   { id: "analytics", label: "Analytics" },
   { id: "database", label: "Database" },
 ];
+
+/** §13 — the Email Center only exists for projects paying for the add-on. */
+const EMAIL_TAB: { id: Tab; label: string } = { id: "email", label: "Email" };
 
 interface Detail {
   project: ProjectRow;
@@ -149,6 +153,8 @@ export default function ProjectPage() {
 
   const { project, services, revisions, installments } = detail;
   const isMobile = project.category === "app-development";
+  const hasEmail = services.some((s) => s.service_key === "email" && s.status === "Active");
+  const tabs = hasEmail ? [...TABS, EMAIL_TAB] : TABS;
 
   return (
     <div>
@@ -194,8 +200,8 @@ export default function ProjectPage() {
         </div>
       )}
 
-      <nav className="flex border-b border-line mb-lg">
-        {TABS.map((item) => (
+      <nav className="flex border-b border-line mb-lg flex-wrap">
+        {tabs.map((item) => (
           <button
             key={item.id}
             onClick={() => setTab(item.id)}
@@ -363,6 +369,8 @@ export default function ProjectPage() {
       {tab === "analytics" && <AnalyticsTab projectId={project.id} status={project.status} />}
 
       {tab === "database" && <DatabaseTab projectId={project.id} />}
+
+      {tab === "email" && hasEmail && <EmailTab projectId={project.id} />}
     </div>
   );
 }

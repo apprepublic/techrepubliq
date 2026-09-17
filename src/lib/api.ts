@@ -31,11 +31,33 @@ export interface ServiceRow {
   id: string;
   project_id?: string;
   name: string;
+  /** The add-on's stable id (`google` | `email` | `ai`); null on the base service. */
+  service_key?: string | null;
   kind: "base" | "addon";
   monthly_cents: number;
   status: string;
   renews_on: string | null;
   grace_until?: string | null;
+}
+
+export interface EmailMessage {
+  id: string;
+  direction: "inbound" | "outbound";
+  from_addr: string;
+  to_addr: string;
+  subject: string;
+  body: string;
+  sent_at: string;
+  read_at: string | null;
+}
+
+export interface EmailCenter {
+  /** Null until the project has a domain — there's no address without one. */
+  mailbox: string | null;
+  domain: string | null;
+  folder: "inbound" | "sent";
+  messages: EmailMessage[];
+  unread: number;
 }
 
 export interface AnalyticsPayload {
@@ -322,6 +344,22 @@ export const api = {
      */
     analytics: (id: string, range: "7d" | "30d") =>
       request<AnalyticsPayload>(`/api/projects/${id}/analytics?range=${range}`),
+    /** §13 — the project's own inbox. Only projects with the Email add-on have one. */
+    email: {
+      list: (id: string, folder: "inbound" | "sent") =>
+        request<EmailCenter>(`/api/projects/${id}/email?folder=${folder}`),
+      send: (id: string, body: { to: string; subject: string; body: string }) =>
+        request<{ ok: boolean; id: string; unread: number }>(`/api/projects/${id}/email`, {
+          method: "POST",
+          body: JSON.stringify(body),
+        }),
+      /** No id marks the whole inbox read. */
+      markRead: (id: string, messageId?: string) =>
+        request<{ ok: boolean; unread: number }>(`/api/projects/${id}/email/read`, {
+          method: "POST",
+          body: JSON.stringify({ id: messageId ?? null }),
+        }),
+    },
   },
   edits: {
     overview: (id: string) =>

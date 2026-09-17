@@ -102,10 +102,10 @@ export async function createProjectForOrder(
       const cents = addonMonthlyCents(params.tierId as any, addonId);
       if (!addon || cents === null) continue;
       await env.DB.prepare(
-        `INSERT INTO project_services (id, project_id, name, kind, monthly_cents, status, renews_on)
-         VALUES (?, ?, ?, 'addon', ?, 'Active', ?)`
+        `INSERT INTO project_services (id, project_id, name, service_key, kind, monthly_cents, status, renews_on)
+         VALUES (?, ?, ?, ?, 'addon', ?, 'Active', ?)`
       )
-        .bind(`PS-${generateId()}`, projectId, addon.label, cents, renewsOn)
+        .bind(`PS-${generateId()}`, projectId, addon.label, addon.id, cents, renewsOn)
         .run();
     }
 
@@ -174,7 +174,7 @@ export const projects = {
         ...project,
         services: (
           await env.DB.prepare(
-            "SELECT id, name, kind, monthly_cents, status, renews_on FROM project_services WHERE project_id = ? ORDER BY kind DESC, name"
+            "SELECT id, name, service_key, kind, monthly_cents, status, renews_on, grace_until FROM project_services WHERE project_id = ? ORDER BY kind DESC, name"
           )
             .bind(project.id)
             .all<any>()

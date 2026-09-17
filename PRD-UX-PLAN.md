@@ -242,6 +242,9 @@ See §10 (architecture) and §11 (installments). Summary of edits:
 
 ### WP7 — Policy & trust surfaces
 
+**Landed in PR 7b.** `/terms` went from 8 clauses to 12, keeping the sticky-TOC layout. The substantive change: clause 8 previously promised refunds "in accordance with our refund policy, which is available on request" — a policy that does not exist. It is now **"No Refunds"**, stating that all payments are final and pointing at the fix-it guarantee instead. Added: hosting/backend always TechRepubliQ and never transferable; the migration bundle is front-end only with no GitHub access; cancellation and migration are OTP-gated and owner-only; and a grace-period clause spelling out seven days of service followed by add-on removal, with the project itself never deleted for non-payment.
+
+
 - `terms/page.tsx` — no refunds ever; 7-day grace then service removal; hosting/backend always TechRepubliQ; vendor confidentiality; OTP-gated cancellation/migration, owner-only; front-end-only bundle; no GitHub. Keep the current sticky-TOC layout.
 - `pricing/page.tsx` — FAQ rewritten to PRD answers; lead with services/value, not price.
 - Checkout + project page — surface hosting/backend inclusion and the no-refund acknowledgement.
@@ -468,6 +471,14 @@ Rules
 - Tab appears **only** when the Email add-on is active; address is on the project's own domain.
 - UI: inbox / sent / compose (existing tokens + `Button`, `Modal`); the vendor is never named (§7).
 
+**As built (PR 7b).** One address per project, `hello@<project domain>`, used for both directions so replies land back in the same inbox.
+
+- **The add-on is the entitlement, not the tab's visibility.** Every route re-checks for an active `email` service; hiding a tab is a convenience, not a control. Mail addressed to a domain whose project has no active add-on is rejected rather than stored somewhere nobody can read it — the sender gets a bounce instead of silence.
+- **Outbound is sent as the project's own address.** If the provider refuses, the send fails with a message about the domain not being set up yet. It is deliberately *not* quietly rerouted through our own address: the recipient would see a different sender than the one sitting in the customer's Sent folder.
+- **`project_services.service_key`** was added because "is the Email add-on active?" was otherwise a string comparison against the add-on's display label — copy that belongs to the marketing side. Existing rows are backfilled from the label they were created with.
+- **The MIME parser is minimal on purpose** — enough to fill an inbox: RFC 2047 encoded subjects, quoted-printable and base64 bodies, multipart with a preference for the `text/plain` part, and an HTML→text fallback. Each part carries its own `Content-Type` and `Content-Transfer-Encoding`; reading those from the outer message instead was the bug that left bodies sitting there still base64'd.
+- **Not yet wired:** inbound needs an **Email Routing rule per project domain**, created in the Cloudflare dashboard. The Worker's `email()` handler exists and typechecks, but nothing delivers to it until that rule is configured. Should be provisioned alongside the zone at launch rather than by hand.
+
 ---
 
 ## 14. Enterprise "Contact Sales"
@@ -498,7 +509,7 @@ Rules
 | **6** | WP6 installments + reviews + post-launch edits | WP4, WP5 | Medium | ✅ **Landed** — review counter with $10/+2 and $15/+3 packs, refusable after launch; post-launch edits priced per-edit (rates only, $25 floor) or drawn from a monthly plan ($100/10, $200/25, $500/50, $1,000/∞) with capped rollover; all purchases charge the card saved at checkout. Installments were already done in PR 4 part 2 |
 | **7** | §12 Analytics (Cloudflare) + §13 Email Center + WP7 policy copy | WP5 | Medium (external APIs) |
 | **7a** | §12 Analytics | WP5 | Medium | ✅ **Landed** — `0009_analytics.sql`; `workers/api/src/lib/cloudflare.ts` (GraphQL client, settings discovery, 429 backoff) + `lib/analytics.ts` (read, nightly roll-up, tier nudge); `GET /api/projects/:id/analytics`; Analytics tab; nudge banner on the projects list. Zones are attached at launch. Verified end to end against `scripts/mock-cloudflare.py` |
-| **7b** | §13 Email Center + WP7 policy copy | WP5, 7a | Medium | ⏳ **Next** |
+| **7b** | §13 Email Center + WP7 policy copy | WP5, 7a | Medium | ✅ **Landed** — `0010_email.sql` (`service_key` on services, `read_at` on messages); `workers/api/src/lib/emailInbound.ts` (MIME parsing + the `email()` entry point) + `routes/email.ts` (list / send / mark read); Email tab for projects with the add-on; `/terms` rewritten to WP7. Verified end to end: entitlement gating, compose sending as the project's domain address, inbox/sent, read state, and 16 MIME parsing cases |
 
 PRs 1 and 2 are independent. None touches the OBJ or GIF-panel code.
 
@@ -514,8 +525,9 @@ PRs 1 and 2 are independent. None touches the OBJ or GIF-panel code.
 6. **PayPal customers can't one-click buy edits yet.** A one-time PayPal capture yields no reusable method — that needs a Vault setup token in `startIntent` and the `VAULT.PAYMENT-TOKEN.CREATED` / `BILLING.SUBSCRIPTION.ACTIVATED` handlers. Until then a PayPal customer buying a review pack gets the "no card on file" answer and is routed to the Service Center.
 6. **New secrets to set before deploy:** `PAYSTACK_PUBLIC_KEY`, `STRIPE_PUBLISHABLE_KEY`, `STRIPE_WEBHOOK_SECRET`, `PAYPAL_CLIENT_ID`, `PAYPAL_CLIENT_SECRET`, `PAYPAL_WEBHOOK_ID`. `FX_API_URL` is already set in `wrangler.toml` to open.er-api.com (no key); swap it if you pick a provider with one.
 7. **Analytics needs two secrets before it does anything:** `CF_API_TOKEN` (zone-scoped read on every project zone) and `CF_ACCOUNT_ID` (only to provision a new zone at launch). Without a token every project renders "Traffic analytics connect when your project's hosting goes live" rather than an error, so analytics can ship turned off.
-8. **No zone plan has been chosen for real** (§12.5). The code reads `notOlderThan` per zone at runtime and disables whichever date preset the plan can't serve, so the Free-vs-Business call doesn't block shipping — but it does decide how far back customers can look.
-9. **Remote D1 migrations are unverified.** All four files (`0001`–`0004_contact_sales`) apply cleanly to a local database; nobody has confirmed whether they were ever applied to the production database `632bb22e…`. Check with `wrangler d1 migrations list techrepubliq --remote` before deploy.
+8. **Inbound email needs an operator step.** Each project domain needs a Cloudflare Email Routing rule pointing at this Worker before any inbox receives anything, and the domain needs to be authorised to send before compose works. Both should be provisioned at launch alongside the zone, not configured by hand per customer.
+9. **No zone plan has been chosen for real** (§12.5). The code reads `notOlderThan` per zone at runtime and disables whichever date preset the plan can't serve, so the Free-vs-Business call doesn't block shipping — but it does decide how far back customers can look.
+10. **Remote D1 migrations are unverified.** All ten files (`0001`–`0010_email`) apply cleanly to a local database; nobody has confirmed whether any of them were ever applied to the production database `632bb22e…`. Check with `wrangler d1 migrations list techrepubliq --remote` before deploy.
 
 Everything else from the first round is resolved in §9.
 

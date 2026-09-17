@@ -15,6 +15,8 @@ import { projects } from "./routes/projects";
 import { edits } from "./routes/edits";
 import { analytics } from "./routes/analytics";
 import { rollupAnalytics, checkTierNudges } from "./lib/analytics";
+import { email } from "./routes/email";
+import { storeInboundEmail } from "./lib/emailInbound";
 
 export interface Env {
   DB: D1Database;
@@ -81,6 +83,11 @@ router.get("/api/service-center", projects.serviceCenter);
 // Traffic analytics (§12) — Cloudflare is called from the Worker only.
 router.get("/api/projects/:id/analytics", analytics.get);
 
+// Per-project Email Center (§13) — only for projects with the Email add-on.
+router.get("/api/projects/:id/email", email.list);
+router.post("/api/projects/:id/email", email.send);
+router.post("/api/projects/:id/email/read", email.markRead);
+
 // Revisions and post-launch edits (PRD §5, §5A)
 router.get("/api/projects/:id/edits", edits.overview);
 router.post("/api/projects/:id/edits/quote", edits.quote);
@@ -125,6 +132,23 @@ function handleOptions(request: Request): Response {
 }
 
 export default {
+  /**
+   * Inbound mail to a project's own domain address (§13).
+   *
+   * This only fires once a Cloudflare Email Routing rule points the domain at this
+   * Worker — that's an operator step in the dashboard, not something the Worker can do
+   * for itself. Until it's configured, no project inbox receives anything.
+   */
+  async email(message: ForwardableEmailMessage, env: Env, ctx: ExecutionContext) {
+    const result = await storeInboundEmail(env, message);
+    if (!result.stored) {
+      console.error(`Inbound mail for ${message.to} wasn't stored — ${result.reason}`);
+      // Reject rather than accept-and-drop, so the sender gets a bounce instead of
+      // silence. A bounce is at least an answer.
+      message.setReject(`${message.to} isn't accepting mail right now`);
+    }
+  },
+
   /**
    * Cron Worker (decision 10): refresh USD→NGN once a day and shout if the rate we are
    * serving goes stale. Installment dunning (§11) will run here too.
