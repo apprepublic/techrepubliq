@@ -491,6 +491,16 @@ Rules
 
 ## 15. Historical data stance
 
+**Fixed in PR 7b.** `/dashboard/orders` lists real orders from `GET /api/orders`, but `/dashboard/orders/[id]` rendered a **hardcoded sample order** for every id — "ORD-001", "$3,500", "In Progress". A customer clicking any past order was shown someone else's figures.
+
+The route needed `generateStaticParams` because the site builds with `output: "export"`, and the only ids it could declare were the sample's own — which is how the fabrication survived. It now follows the same pattern `/dashboard/project` already uses: a static route at `/dashboard/orders/detail` reading `?id=` from the URL.
+
+That exposed a second problem: orders were being **created with no detail at all**. The insert after payment wrote a fixed `"TechRepubliQ project"`, the placeholder slug `custom-project` (via a ternary whose branches were identical), and a description of `"Payment via <provider>"`. It now carries the quote's own service, description, scope and timeline, and records the amount in the minor units of the order's currency — `amount_cents` is always USD-based, which would have made a naira order read as a few hundred naira.
+
+The migration modal on that page also offered "Front-end + back-end migration files". The server has only ever produced the front-end bundle, and the Service Agreement now says so; the option is gone and the copy matches what is actually delivered.
+
+
+
 - Ship `0005_projects.sql` as **new tables**; do not migrate or reshape existing `orders`/`quotes`/`migration_requests` rows.
 - Dashboard "Orders" splits into **Projects** (new model) and **Past orders** (read-only, existing `api.orders.list()` / `/dashboard/orders/[id]`).
 - Quote references (`QR-…`) remain valid for historical lookups; new intakes use the same `QR-` prefix so nothing looks foreign.
@@ -527,7 +537,8 @@ PRs 1 and 2 are independent. None touches the OBJ or GIF-panel code.
 7. **Analytics needs two secrets before it does anything:** `CF_API_TOKEN` (zone-scoped read on every project zone) and `CF_ACCOUNT_ID` (only to provision a new zone at launch). Without a token every project renders "Traffic analytics connect when your project's hosting goes live" rather than an error, so analytics can ship turned off.
 8. **Inbound email needs an operator step.** Each project domain needs a Cloudflare Email Routing rule pointing at this Worker before any inbox receives anything, and the domain needs to be authorised to send before compose works. Both should be provisioned at launch alongside the zone, not configured by hand per customer.
 9. **No zone plan has been chosen for real** (§12.5). The code reads `notOlderThan` per zone at runtime and disables whichever date preset the plan can't serve, so the Free-vs-Business call doesn't block shipping — but it does decide how far back customers can look.
-10. **Remote D1 migrations are unverified.** All ten files (`0001`–`0010_email`) apply cleanly to a local database; nobody has confirmed whether any of them were ever applied to the production database `632bb22e…`. Check with `wrangler d1 migrations list techrepubliq --remote` before deploy.
+10. **`next@15.1.7` has a published security vulnerability** (CVE-2025-66478; npm prints the warning on install). This is the version the app has been on throughout. Upgrading a framework version on a site that takes payments needs its own verification pass — static export, the landing page's three.js/OBJ hero, and every dashboard route — so it is deliberately *not* bundled into this work. Worth scheduling on its own.
+11. **Remote D1 migrations are unverified.** All ten files (`0001`–`0010_email`) apply cleanly to a local database; nobody has confirmed whether any of them were ever applied to the production database `632bb22e…`. Check with `wrangler d1 migrations list techrepubliq --remote` before deploy.
 
 Everything else from the first round is resolved in §9.
 
@@ -558,7 +569,7 @@ grep -rnE "#[0-9A-Fa-f]{6}" src/ --include=*.tsx --include=*.ts | grep -v "src/a
 - [ ] Paystack + Stripe + PayPal happy paths and webhook signature verification (incl. `charge_authorization` for installments)
 - [x] Analytics: 429/backoff path, `notOlderThan`-driven date presets, "estimated" chip when `sampleInterval > 1`
       — all three exercised against the mock: two 429s then success (2.9s, live figures); a permanent 429 falls back to the roll-up marked stale; a 7-day-retention zone refuses 30d with the reason and still serves 7d
-- [ ] `npm ci && npx tsc --noEmit && npm run lint && npm run build`
+- [x] `npm ci && npx tsc --noEmit && npm run lint && npm run build` — **lint had never run**: there was no ESLint config, so `next lint` dropped into an interactive setup prompt and CI would have sailed past it. `eslint@8` + `eslint-config-next@15.1.7` are now devDependencies with `.eslintrc.json` extending `next/core-web-vitals`. Two real errors surfaced immediately (unescaped apostrophes in the order detail page). Lint is also part of `next build`, so until this was configured the build was passing without it.
 
 ---
 

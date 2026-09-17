@@ -1,7 +1,7 @@
 import { error, json, generateId } from "../utils";
 import { sendInvoiceEmail } from "../email";
 import type { Env } from "../index";
-import { computePrice, type ComplexityId, type TierId } from "../lib/pricing";
+import { CATEGORIES, computePrice, type ComplexityId, type TierId } from "../lib/pricing";
 import { getRate, isStale, toPresentment, type FxRate } from "../lib/fx";
 import { createPlanForPayment, installmentSchedule } from "../lib/installments";
 import { createProjectForOrder } from "./projects";
@@ -172,19 +172,40 @@ async function onPaymentSucceeded(env: Env, event: NormalizedEvent): Promise<voi
 
   if (customerId) {
     try {
+      // Carry the quote's own detail onto the order. It used to write a fixed
+      // "TechRepubliQ project" with a placeholder slug, which left every order
+      // indistinguishable and gave the order detail page nothing to show but a price —
+      // the customer bought a described piece of work, not a placeholder.
+      const quote = intent.quote_reference
+        ? await env.DB.prepare(
+            "SELECT service_slug, description, timeline, scope_summary, features FROM quotes WHERE reference_id = ?"
+          )
+            .bind(intent.quote_reference)
+            .first<any>()
+        : null;
+
+      const slug = quote?.service_slug ?? "custom-project";
+      const title = CATEGORIES.find((c) => c.slug === slug)?.title ?? "Custom project";
+
       await env.DB.prepare(
         `INSERT OR IGNORE INTO orders
-           (id, customer_id, quote_reference, service_slug, service_title, description, price_cents, currency, status)
-         VALUES (?, ?, ?, ?, ?, ?, ?, 'USD', 'Paid')`
+           (id, customer_id, quote_reference, service_slug, service_title, description, scope_features, timeline, price_cents, currency, status)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Paid')`
       )
         .bind(
           orderId,
           customerId,
           intent.quote_reference ?? intent.id,
-          intent.quote_reference ? "custom-project" : "custom-project",
-          "TechRepubliQ project",
-          `Payment via ${event.provider}`,
-          intent.amount_cents
+          slug,
+          title,
+          quote?.description ?? `Payment via ${event.provider}`,
+          quote?.scope_summary ?? quote?.features ?? "[]",
+          quote?.timeline ?? null,
+          // `price_cents` is read together with `currency`, so it has to be the minor unit
+          // *of that currency* — cents for USD, kobo for NGN. `amount_cents` is always
+          // USD-based, which would have made a naira order read as a few hundred naira.
+          intent.amount_minor ?? intent.amount_cents,
+          intent.currency ?? "USD"
         )
         .run();
     } catch (err) {

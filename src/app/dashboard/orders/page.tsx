@@ -86,7 +86,7 @@ export default function PastOrdersPage() {
               >
                 <td className="py-md">
                   <Link
-                    href={`/dashboard/orders/${order.id}`}
+                    href={`/dashboard/orders/detail?id=${order.id}`}
                     className="font-mono text-ink no-underline hover:text-accent block"
                   >
                     {order.quote_reference || order.id}
@@ -94,7 +94,7 @@ export default function PastOrdersPage() {
                 </td>
                 <td className="py-md">
                   <Link
-                    href={`/dashboard/orders/${order.id}`}
+                    href={`/dashboard/orders/detail?id=${order.id}`}
                     className="text-ink no-underline hover:text-accent block"
                   >
                     {order.service_title}
@@ -115,7 +115,7 @@ export default function PastOrdersPage() {
           {orders.map((order) => (
             <Link
               key={order.id}
-              href={`/dashboard/orders/${order.id}`}
+              href={`/dashboard/orders/detail?id=${order.id}`}
               className="block border border-line rounded-sm p-md no-underline hover:border-ink transition-colors duration-150"
             >
               <div className="flex items-center justify-between mb-sm gap-sm">
