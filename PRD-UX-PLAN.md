@@ -284,6 +284,9 @@ See §10 (architecture) and §11 (installments). Summary of edits:
 | 19 | **Lead with the work, not the price** | Browsing surfaces sell speed, reliability, scalability and functionality; money is spelled out on `/pricing` and at checkout only (§19) |
 | 20 | **Post-launch edits are priced on the rates alone — no $500 base — with a $25 floor** | §5A says edits use §4.2's logic, but §4.2's base is a *project* engagement fee; carrying it into an edit made one change $506 beside a $100/mo plan covering ten |
 | 21 | **Unused monthly edits roll over, capped at one extra month's allowance** | Generous without letting anyone hoard; the cap is `EDIT_ROLLOVER_CAP_MONTHS` |
+| 22 | **FX source is open.er-api.com** | Already configured in `wrangler.toml`, needs no key, and has been refreshed daily throughout. The rate is cached and locked onto each intent, so a missed refresh costs accuracy, not correctness — we can swap providers without touching the money path |
+| 23 | **Project zones are Free by default, Business sold per project** | Free keeps 30 days of traffic history — more than Pro's 7 — and costs nothing against a $5/mo tier. Business (~$200–250/mo) is a paid upgrade a customer asks for, never something we absorb. Pro is avoided: strictly worse on retention and it costs money (§12.5) |
+| 24 | **The upgrade nudge watches requests/day only** | Bandwidth stays a display-only figure on the Analytics tab. One metric, one conversation — a customer nudged about two numbers at once just gets confused |
 
 ---
 
@@ -527,9 +530,9 @@ PRs 1 and 2 are independent. None touches the OBJ or GIF-panel code.
 
 ## 17. Remaining open items
 
-1. **Which FX API** for the USD→NGN cron (§10) — provider is interchangeable, just needs a USD→NGN endpoint and a sane rate limit.
-2. **Zone plan sign-off** (§12.5): confirm Free-by-default with Business as a per-project paid upgrade, and the offboarding clause for customer-owned registrars.
-3. **Does the upgrade nudge need a bandwidth half?** Requests/day is the metric; bandwidth is currently display-only.
+1. ~~**Which FX API** for the USD→NGN cron (§10).~~ **Settled as decision 22 — open.er-api.com.**
+2. ~~**Zone plan sign-off** (§12.5).~~ **Settled as decision 23 — Free by default, Business as a per-project paid upgrade.** Still open: the offboarding clause for customer-owned registrars, which needs a contract rather than code.
+3. ~~**Does the upgrade nudge need a bandwidth half?**~~ **Settled as decision 24 — requests/day only.**
 4. **`FROM_EMAIL` is an unset secret in local dev** — outbound mail no-ops with a logged error until it's set. Pre-existing, but it means the Contact Sales emails are untested against a real inbox.
 5. **A real off-session charge has never run against a live provider.** The sandbox has no network, so charges were verified against `scripts/mock-paypal.py` (PayPal's base URL is configurable, which makes this possible). Test with Stripe test keys and a real card before taking installments or one-click purchases live.
 6. **PayPal customers can't one-click buy edits yet.** A one-time PayPal capture yields no reusable method — that needs a Vault setup token in `startIntent` and the `VAULT.PAYMENT-TOKEN.CREATED` / `BILLING.SUBSCRIPTION.ACTIVATED` handlers. Until then a PayPal customer buying a review pack gets the "no card on file" answer and is routed to the Service Center.
