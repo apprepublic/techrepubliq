@@ -3,6 +3,14 @@ main = "src/index.ts"
 compatibility_date = "2026-08-01"
 compatibility_flags = ["nodejs_compat"]
 
+# Daily FX refresh — 06:00 UTC (decision 10). Installment dunning (§11) will join it.
+[triggers]
+crons = ["0 6 * * *"]
+
+# USD→NGN source. Defaults to open.er-api.com inside the code if left unset.
+[vars]
+FX_API_URL = "https://open.er-api.com/v6/latest/USD"
+
 [[d1_databases]]
 binding = "DB"
 database_name = "techrepubliq"

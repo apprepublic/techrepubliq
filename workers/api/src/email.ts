@@ -61,6 +61,24 @@ export async function sendInvoiceEmail(
   }
 }
 
+/**
+ * Internal alert to the admin inbox — used when something money-adjacent stops working
+ * (a stale FX rate, a failed provider call). Never sent to a customer.
+ */
+export async function sendAlertEmail(env: Env, subject: string, bodyHtml: string) {
+  const to = env.ADMIN_EMAIL || "admin@techrepubliq.com";
+  try {
+    await env.SEND_EMAIL.send({
+      from: { name: "TechRepubliQ Alerts", email: env.FROM_EMAIL },
+      to: [{ name: "Admin", email: to }],
+      subject: `[TechRepubliQ] ${subject}`,
+      html: baseHtml(LOGO_URL, bodyHtml, subject),
+    });
+  } catch (err) {
+    console.error("Failed to send alert email:", err);
+  }
+}
+
 export async function sendVerificationEmail(
   env: Env,
   to: string,

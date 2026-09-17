@@ -405,9 +405,11 @@ export function addonMonthlyCents(tierId: TierId, addonId: string): number | nul
 export function servicesAnnualCents(tierId: TierId, addonIds: string[]): number | null {
   const tier = tierById(tierId);
   if (!tier || tier.monthlyCents === null) return null;
+  // The tier's own monthly fee is the base; add-ons sit on top of it. Without this the
+  // recurring services were billed at zero for any project with no add-ons.
   const perMonth = addonIds.reduce<number>(
     (sum, id) => sum + (addonMonthlyCents(tierId, id) ?? 0),
-    0
+    tier.monthlyCents
   );
   return perMonth * 12;
 }

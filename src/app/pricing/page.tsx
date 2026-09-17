@@ -66,7 +66,7 @@ const faqGroups = [
         id: "payment-methods",
         question: "Which currencies and payment methods?",
         answer:
-          "Customers in Nigeria pay in Naira through Paystack. International customers pay in USD by card. Whichever applies is offered to you at checkout.",
+          "Customers in Nigeria pay in Naira through Paystack. International customers pay in USD by card or with PayPal. Whichever applies is offered to you at checkout, and the rate used to convert a Naira total is shown before you pay and locked onto the order.",
       },
       {
         id: "grace-period",

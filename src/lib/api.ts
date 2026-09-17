@@ -1,3 +1,5 @@
+import type { PaymentIntent, ProviderId } from "@/lib/payments/provider";
+
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "https://techrepubliq-api.areh4biz.workers.dev";
 
 async function request<T>(
@@ -153,27 +155,35 @@ export const api = {
     get: (id: string) => request<{ order: any; migration: any | null }>(`/api/orders/${id}`),
   },
   payments: {
+    /**
+     * Open a payment. Note what is *not* sent: no amount and no currency decision that
+     * matters — the server recomputes the total from the stored quote and locks the FX
+     * rate it used onto the intent.
+     */
     createIntent: (body: {
       quoteRef: string;
-      amountCents: number;
-      currency: string;
+      email?: string;
+      cadence?: "annual" | "monthly";
+      devFeeMode?: "once" | "installments";
+      provider?: ProviderId;
+      currency?: string;
       discountCode?: string;
     }) =>
+      request<{ intent: PaymentIntent } | { valid: false; error: string }>(
+        "/api/payments/create-intent",
+        { method: "POST", body: JSON.stringify(body) }
+      ),
+    verify: (reference: string) =>
       request<{
-        intent: {
-          orderId: string;
-          amountCents: number;
-          currency: string;
-          provider: string;
-          discountApplied: boolean;
-          discountAmountCents: number;
-        };
-        valid?: boolean;
-        error?: string;
-      }>("/api/payments/create-intent", {
-        method: "POST",
-        body: JSON.stringify(body),
-      }),
+        status: "Pending" | "Paid" | "Failed";
+        reference: string;
+        provider: ProviderId;
+        currency: string;
+        amountCents: number;
+        amountMinor: number;
+        fxRateUsed: number | null;
+        orderId: string | null;
+      }>(`/api/payments/verify?reference=${encodeURIComponent(reference)}`),
   },
   migrations: {
     request: (body: { orderId: string; scope: "frontend" | "full" }) =>
