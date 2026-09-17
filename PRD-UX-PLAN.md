@@ -557,8 +557,11 @@ python3 scripts/check-guardrails.py
 #   anim.gif 1 · ring3d 11
 # (The two 9acc338-era md5s in earlier notes used pre-PR-1 line offsets; this script replaces them.)
 
-# Pricing model — client and server must agree
-node --experimental-strip-types scripts/check-pricing-mirror.mjs
+# Pricing model — client and server must agree on their constants
+npm run check:mirror
+
+# Money math — the outputs must keep their promises (installments sum exactly, etc.)
+npm run check:money
 
 # Constraint 3 — no hex drift outside the landing theme injector
 grep -rnE "#[0-9A-Fa-f]{6}" src/ --include=*.tsx --include=*.ts | grep -v "src/app/page.tsx" | grep -v ThemeProvider
@@ -567,8 +570,9 @@ grep -rnE "#[0-9A-Fa-f]{6}" src/ --include=*.tsx --include=*.ts | grep -v "src/a
 - [ ] ≤860px hero (ring visible, CTA above the fold); ≤640px grids
 - [ ] OBJ spins on scroll, settles, never drifts; GIF still renders in the panel
 - [ ] Every cross-page link inside the iframe has `target="_top"`
-- [ ] Client and server totals agree; monthly = annual × 1.15 ÷ 12 to the cent; Enterprise shows no number
-- [ ] 12 installments sum to the fee exactly; one-time = 15% off; `/services` and every `/services/<slug>` render in dark and light
+- [x] Client and server totals agree; monthly = annual × 1.15 ÷ 12 to the cent; Enterprise shows no number
+- [x] 12 installments sum to the fee exactly; one-time = 15% off — **`npm run check:money`**, 188 assertions across 12 fee values and both copies. The mirror check only proves the two models agree on their *constants*; this proves the outputs keep their promises. Verified it actually fails: swapping `floor()` for `round()` when splitting the fee over-charges by up to 4¢ (12 payments of 11 sum to 12), and a 13% discount is caught immediately.
+- [ ] `/services` and every `/services/<slug>` render in dark and light
 - [ ] Paystack + Stripe + PayPal happy paths and webhook signature verification (incl. `charge_authorization` for installments)
 - [x] Analytics: 429/backoff path, `notOlderThan`-driven date presets, "estimated" chip when `sampleInterval > 1`
       — all three exercised against the mock: two 429s then success (2.9s, live figures); a permanent 429 falls back to the roll-up marked stale; a 7-day-retention zone refuses 30d with the reason and still serves 7d

@@ -12,7 +12,9 @@
     "api:dev": "npm --prefix workers/api run dev",
     "api:deploy": "npm --prefix workers/api run deploy",
     "api:migrate": "npm --prefix workers/api run db:migrate",
-    "api:mock-cloudflare": "python3 scripts/mock-cloudflare.py"
+    "api:mock-cloudflare": "python3 scripts/mock-cloudflare.py",
+    "check:mirror": "node --experimental-strip-types scripts/check-pricing-mirror.mjs",
+    "check:money": "node --experimental-strip-types scripts/check-money-math.mjs"
   },
   "dependencies": {
     "clsx": "2.1.1",
