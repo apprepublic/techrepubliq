@@ -63,6 +63,21 @@ eq(
   server.ONE_TIME_SERVICES.map((s) => [s.id, s.cents])
 );
 
+// Edit pricing (PRD §5A) and the packs/plans around it.
+eq("EDIT_MINIMUM_CENTS", client.EDIT_MINIMUM_CENTS, server.EDIT_MINIMUM_CENTS);
+eq("EDIT_ROLLOVER_CAP_MONTHS", client.EDIT_ROLLOVER_CAP_MONTHS, server.EDIT_ROLLOVER_CAP_MONTHS);
+eq("EXTRA_REVIEWS", client.EXTRA_REVIEWS, server.EXTRA_REVIEWS);
+eq("EDIT_PLANS", client.EDIT_PLANS, server.EDIT_PLANS);
+for (const complexity of ["standard", "elevated", "complex"]) {
+  for (const [pages, components] of [[0, 0], [1, 1], [2, 6], [12, 40]]) {
+    eq(
+      `computeEditCents(${pages},${components},${complexity})`,
+      client.computeEditCents({ pages, components, complexity }),
+      server.computeEditCents({ pages, components, complexity })
+    );
+  }
+}
+
 // Behavioural check — the same inputs must produce the same money on both sides.
 const sample = {
   category: "web-development",

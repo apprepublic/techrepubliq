@@ -12,6 +12,7 @@ import { customers } from "./routes/customers";
 import { uploads } from "./routes/uploads";
 import { contactSales } from "./routes/contactSales";
 import { projects } from "./routes/projects";
+import { edits } from "./routes/edits";
 
 export interface Env {
   DB: D1Database;
@@ -65,6 +66,14 @@ router.post("/api/projects/:id/services/restore", projects.restoreService);
 router.post("/api/projects/:id/migration", projects.requestMigration);
 router.post("/api/projects/:id/migration/confirm", projects.confirmMigration);
 router.get("/api/service-center", projects.serviceCenter);
+
+// Revisions and post-launch edits (PRD §5, §5A)
+router.get("/api/projects/:id/edits", edits.overview);
+router.post("/api/projects/:id/edits/quote", edits.quote);
+router.post("/api/projects/:id/edits/request", edits.request);
+router.post("/api/projects/:id/edits/subscribe", edits.subscribe);
+router.post("/api/projects/:id/edits/subscribe/cancel", edits.cancelSubscription);
+router.post("/api/projects/:id/reviews/purchase", edits.buyReviews);
 
 // Orders
 router.get("/api/orders", orders.list);

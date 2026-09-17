@@ -119,6 +119,38 @@ export const INSTALLMENT_MONTHS = 12;
  * Money math — mirrors src/lib/product.ts exactly
  * ------------------------------------------------------------------ */
 
+export const EXTRA_REVIEWS = [
+  { cents: 1000, count: 2 },
+  { cents: 1500, count: 3 },
+] as const;
+
+export const EDIT_PLANS = [
+  { monthlyCents: 10000, edits: 10 },
+  { monthlyCents: 20000, edits: 25 },
+  { monthlyCents: 50000, edits: 50 },
+  { monthlyCents: 100000, edits: null }, // unlimited
+] as const;
+
+/**
+ * Post-launch edit pricing (PRD §5A). Mirrors src/lib/product.ts — see the note there
+ * for why §4.2's $500 base is deliberately absent.
+ */
+export const EDIT_MINIMUM_CENTS = 2500;
+export const EDIT_ROLLOVER_CAP_MONTHS = 1;
+
+export function computeEditCents(input: {
+  pages: number;
+  components: number;
+  complexity: ComplexityId;
+}): number {
+  const pages = Math.max(0, Math.round(input.pages || 0));
+  const components = Math.max(0, Math.round(input.components || 0));
+  const raw =
+    (pages * RATE_PER_PAGE_CENTS + components * RATE_PER_COMPONENT_CENTS) *
+    (COMPLEXITY[input.complexity]?.multiplier ?? 1);
+  return Math.max(EDIT_MINIMUM_CENTS, Math.round(raw));
+}
+
 export function computeDevFeeCents(input: {
   pages: number;
   components: number;

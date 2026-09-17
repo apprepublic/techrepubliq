@@ -279,6 +279,8 @@ See §10 (architecture) and §11 (installments). Summary of edits:
 | 17 | **Customer domains are zones in OUR Cloudflare account** | We own and pay for the zone, query analytics with one token, and need an offboarding path (§12.5) |
 | 18 | **Keep PRD §4.2's rates — don't renegotiate them** | Fees land in the $500–$2,000 band; the cheaper positioning is deliberate, not an accident |
 | 19 | **Lead with the work, not the price** | Browsing surfaces sell speed, reliability, scalability and functionality; money is spelled out on `/pricing` and at checkout only (§19) |
+| 20 | **Post-launch edits are priced on the rates alone — no $500 base — with a $25 floor** | §5A says edits use §4.2's logic, but §4.2's base is a *project* engagement fee; carrying it into an edit made one change $506 beside a $100/mo plan covering ten |
+| 21 | **Unused monthly edits roll over, capped at one extra month's allowance** | Generous without letting anyone hoard; the cap is `EDIT_ROLLOVER_CAP_MONTHS` |
 
 ---
 
@@ -487,7 +489,7 @@ Rules
 | **3** | WP3 quote/intake + uploads + enterprise form | WP0, WP2 | Medium | ✅ **Landed — `b6ea079`** (5-step `/quote` with the §4.3 metrics and tier recommendation, `POST /api/uploads` → R2, `POST /api/contact-sales` → admin@techrepubliq.com + ack, server-side quote pricing with clamped estimates, `/quote/result` deleted, `?category=`/`?tier=` wired. Client and server totals verified identical; routes exercised locally. R2 bucket provisioned) |
 | **4** | WP4 payments: provider interface, PayPal rail, FX fix, invoices, signature verification | WP3 | Medium (money path) | ✅ **Landed** — part 1: provider seam, three rails, FX cron + locked rate, verified webhooks, server-side recompute, checkout conversion (§10, §20). Part 2: installments (§11). The "2 of 12 paid · next ₦… on <date>" widget landed with PR 5, which built the project surface it needed |
 | **5** | WP5 dashboard + project tabs (Preview/Services/Database) | WP0, DB | Medium–high | ✅ **Landed** — `0005_projects.sql`; projects are created from a paid order; `/api/projects` (+ services/cancel/restore, launch, database, OTP migration, service-center); dashboard nav Projects·Subscriptions·Service Center·Account·Past orders; project page with Preview/Services/Database tabs and the installment card; historical orders moved to `/dashboard/orders`. Analytics and Email Center tabs arrive with PR 7 |
-| **6** | WP6 installments + reviews + post-launch edits | WP4, WP5 | Medium |
+| **6** | WP6 installments + reviews + post-launch edits | WP4, WP5 | Medium | ✅ **Landed** — review counter with $10/+2 and $15/+3 packs, refusable after launch; post-launch edits priced per-edit (rates only, $25 floor) or drawn from a monthly plan ($100/10, $200/25, $500/50, $1,000/∞) with capped rollover; all purchases charge the card saved at checkout. Installments were already done in PR 4 part 2 |
 | **7** | §12 Analytics (Cloudflare) + §13 Email Center + WP7 policy copy | WP5 | Medium (external APIs) |
 
 PRs 1 and 2 are independent. None touches the OBJ or GIF-panel code.
@@ -500,7 +502,8 @@ PRs 1 and 2 are independent. None touches the OBJ or GIF-panel code.
 2. **Zone plan sign-off** (§12.5): confirm Free-by-default with Business as a per-project paid upgrade, and the offboarding clause for customer-owned registrars.
 3. **Does the upgrade nudge need a bandwidth half?** Requests/day is the metric; bandwidth is currently display-only.
 4. **`FROM_EMAIL` is an unset secret in local dev** — outbound mail no-ops with a logged error until it's set. Pre-existing, but it means the Contact Sales emails are untested against a real inbox.
-5. **A real off-session charge has never run.** Every installment path is verified locally except the successful one — the sandbox has no network, so `chargeSaved` has only exercised its failure branch (grace window, reminders, default). Test with Stripe test keys before taking installments live.
+5. **A real off-session charge has never run against a live provider.** The sandbox has no network, so charges were verified against `scripts/mock-paypal.py` (PayPal's base URL is configurable, which makes this possible). Test with Stripe test keys and a real card before taking installments or one-click purchases live.
+6. **PayPal customers can't one-click buy edits yet.** A one-time PayPal capture yields no reusable method — that needs a Vault setup token in `startIntent` and the `VAULT.PAYMENT-TOKEN.CREATED` / `BILLING.SUBSCRIPTION.ACTIVATED` handlers. Until then a PayPal customer buying a review pack gets the "no card on file" answer and is routed to the Service Center.
 6. **New secrets to set before deploy:** `PAYSTACK_PUBLIC_KEY`, `STRIPE_PUBLISHABLE_KEY`, `STRIPE_WEBHOOK_SECRET`, `PAYPAL_CLIENT_ID`, `PAYPAL_CLIENT_SECRET`, `PAYPAL_WEBHOOK_ID`. `FX_API_URL` is already set in `wrangler.toml` to open.er-api.com (no key); swap it if you pick a provider with one.
 7. **Remote D1 migrations are unverified.** All four files (`0001`–`0004_contact_sales`) apply cleanly to a local database; nobody has confirmed whether they were ever applied to the production database `632bb22e…`. Check with `wrangler d1 migrations list techrepubliq --remote` before deploy.
 
@@ -579,6 +582,7 @@ Patching the tag alone would have left a config where `wrangler deploy` from the
 | Command | Does |
 | --- | --- |
 | `npm run api:setup` | installs worker deps and creates `.dev.vars` from `.dev.vars.example` (dummy test values) if it's missing — run this first in a fresh checkout |
+| `npm run api:mock-paypal` | runs `scripts/mock-paypal.py` on :8788 — set `PAYPAL_API_BASE=http://127.0.0.1:8788` in `.dev.vars` and the PayPal rail, including off-session charges, works with no network |
 | `npm run api:dev` | `wrangler dev` — pass `--compatibility-date 2026-05-03`; local workerd is older than the committed `2026-08-01` and rejects it |
 | `npm run api:deploy` | deploys the Worker |
 | `npm run api:migrate` | `wrangler d1 migrations apply techrepubliq` — **remote**. Append `-- --local` to rehearse against a local copy |

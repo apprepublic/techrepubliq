@@ -258,6 +258,32 @@ export const EDIT_PLANS = [
   { monthlyCents: 100000, edits: null }, // unlimited
 ] as const;
 
+/**
+ * Post-launch edit pricing (PRD §5A).
+ *
+ * §5A says edits use §4.2's page/component/complexity logic — but §4.2's $500 is a
+ * *project* engagement base, and carrying it into an edit would make one change cost
+ * $506 next to a $100/month plan covering ten. So an edit is priced on the rates alone,
+ * with a floor so a trivial change still has a price. Tier never enters into it.
+ */
+export const EDIT_MINIMUM_CENTS = 2500; // $25
+
+/** Unused subscription edits carry over, capped at one month's allowance. */
+export const EDIT_ROLLOVER_CAP_MONTHS = 1;
+
+export function computeEditCents(input: {
+  pages: number;
+  components: number;
+  complexity: ComplexityId;
+}): number {
+  const pages = Math.max(0, Math.round(input.pages || 0));
+  const components = Math.max(0, Math.round(input.components || 0));
+  const raw =
+    (pages * RATE_PER_PAGE_CENTS + components * RATE_PER_COMPONENT_CENTS) *
+    (COMPLEXITY[input.complexity]?.multiplier ?? 1);
+  return Math.max(EDIT_MINIMUM_CENTS, Math.round(raw));
+}
+
 /* ------------------------------------------------------------------ *
  * Intake metrics — PRD §4.3 (used to recommend a tier, never to price)
  * ------------------------------------------------------------------ */

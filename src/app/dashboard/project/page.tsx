@@ -7,12 +7,14 @@ import { StatusBadge, type ProjectStatus } from "@/components/StatusBadge";
 import { api, type ProjectRow, type ServiceRow } from "@/lib/api";
 import { formatMoney } from "@/lib/payments/provider";
 import { cn } from "@/lib/utils";
+import { EditsTab } from "@/components/dashboard/EditsTab";
 
-type Tab = "preview" | "services" | "database";
+type Tab = "preview" | "services" | "edits" | "database";
 
 const TABS: { id: Tab; label: string }[] = [
   { id: "preview", label: "Preview" },
   { id: "services", label: "Services" },
+  { id: "edits", label: "Edits" },
   { id: "database", label: "Database" },
 ];
 
@@ -261,11 +263,19 @@ export default function ProjectPage() {
           <div className="border border-line rounded-sm p-lg">
             <h2 className="text-md font-display font-semibold text-ink mb-sm">Pre-launch reviews</h2>
             <p className="text-sm text-slate">
-              {revisions.used} of {revisions.included + revisions.purchased} used
+              {revisions.used} of {revisions.included + revisions.purchased} used ·{" "}
+              <button
+                onClick={() => setTab("edits")}
+                className="text-accent hover:text-accent-hover underline"
+              >
+                {project.status === "Live" ? "request an edit" : "buy more"}
+              </button>
             </p>
           </div>
         </div>
       )}
+
+      {tab === "edits" && <EditsTab projectId={project.id} status={project.status} />}
 
       {tab === "services" && (
         <div className="space-y-md">

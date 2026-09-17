@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "next lint",
     "api:setup": "npm --prefix workers/api ci && node -e \"const f=require('fs');const p='workers/api/.dev.vars';if(!f.existsSync(p))f.copyFileSync('workers/api/.dev.vars.example',p)\"",
+    "api:mock-paypal": "python3 scripts/mock-paypal.py",
     "api:dev": "npm --prefix workers/api run dev",
     "api:deploy": "npm --prefix workers/api run deploy",
     "api:migrate": "npm --prefix workers/api run db:migrate"

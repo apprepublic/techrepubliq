@@ -267,6 +267,61 @@ export const api = {
         body: JSON.stringify({ code }),
       }),
   },
+  edits: {
+    overview: (id: string) =>
+      request<{
+        status: string;
+        revisions: { included: number; used: number; purchased: number };
+        subscription: {
+          id: string;
+          monthly_cents: number;
+          edits_included: number | null;
+          edits_remaining: number | null;
+          renews_on: string | null;
+          status: string;
+        } | null;
+        requests: {
+          id: string;
+          description: string;
+          pages: number | null;
+          components: number | null;
+          complexity: string | null;
+          price_cents: number;
+          billed_via: string;
+          status: string;
+          created_at: string;
+        }[];
+        packs: { cents: number; count: number }[];
+        plans: { monthlyCents: number; edits: number | null }[];
+      }>(`/api/projects/${id}/edits`),
+    quote: (id: string, body: { pages: number; components: number; complexity: string }) =>
+      request<{ priceCents: number; complexity: string }>(`/api/projects/${id}/edits/quote`, {
+        method: "POST",
+        body: JSON.stringify(body),
+      }),
+    request: (
+      id: string,
+      body: { description: string; pages: number; components: number; complexity: string }
+    ) =>
+      request<{ ok: boolean; id: string; billedVia: string; priceCents: number }>(
+        `/api/projects/${id}/edits/request`,
+        { method: "POST", body: JSON.stringify(body) }
+      ),
+    subscribe: (id: string, monthlyCents: number) =>
+      request<{ ok: boolean; subscription: unknown }>(`/api/projects/${id}/edits/subscribe`, {
+        method: "POST",
+        body: JSON.stringify({ monthlyCents }),
+      }),
+    cancelSubscription: (id: string) =>
+      request<{ ok: boolean; subscription: unknown }>(`/api/projects/${id}/edits/subscribe/cancel`, {
+        method: "POST",
+      }),
+    buyReviews: (id: string, count: number) =>
+      request<{ ok: boolean; revisions: { included: number; used: number; purchased: number } }>(
+        `/api/projects/${id}/reviews/purchase`,
+        { method: "POST", body: JSON.stringify({ count }) }
+      ),
+  },
   serviceCenter: {
     info: () =>
       request<{ handled: string[]; note: string; contact: string }>("/api/service-center"),
