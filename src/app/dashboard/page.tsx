@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { motion } from "motion/react";
 import { StatusBadge, type ProjectStatus } from "@/components/StatusBadge";
 import { Button } from "@/components/Button";
-import { api, type ProjectRow } from "@/lib/api";
+import { api, type ProjectRow, type TierNudge } from "@/lib/api";
 
 const staggerContainer = {
   hidden: { opacity: 0 },
@@ -23,12 +23,16 @@ function monthlyTotal(project: ProjectRow): number {
 
 export default function DashboardPage() {
   const [projects, setProjects] = useState<ProjectRow[] | null>(null);
+  const [nudges, setNudges] = useState<TierNudge[]>([]);
   const [error, setError] = useState("");
 
   useEffect(() => {
     api.projects
       .list()
-      .then((res) => setProjects(res.projects))
+      .then((res) => {
+        setProjects(res.projects);
+        setNudges(res.nudges ?? []);
+      })
       .catch(() => {
         setProjects([]);
         setError("Couldn't load your projects. Refresh to try again.");
@@ -73,6 +77,34 @@ export default function DashboardPage() {
           Start another project →
         </Link>
       </div>
+
+      {/* Decision 15 — a suggestion, never a restriction. Nothing is throttled here. */}
+      {nudges.map((nudge) => (
+        <div
+          key={nudge.projectId}
+          className="border border-line rounded-sm p-md mb-lg bg-paper flex items-start justify-between gap-sm flex-wrap"
+        >
+          <p className="text-sm text-slate">
+            <Link
+              href={`/dashboard/project?id=${nudge.projectId}`}
+              className="text-ink no-underline hover:text-accent"
+            >
+              {nudge.name}
+            </Link>{" "}
+            is averaging{" "}
+            <span className="font-mono text-ink">{nudge.observed.toLocaleString()}</span> requests a
+            day — {nudge.level === "breach" ? "above" : "close to"} its tier&apos;s{" "}
+            <span className="font-mono text-ink">{nudge.ceiling.toLocaleString()}</span>. Nothing is
+            being slowed down or switched off; a bigger tier just gives it more headroom.
+          </p>
+          <Link
+            href={`/dashboard/project?id=${nudge.projectId}`}
+            className="text-sm text-accent hover:text-accent-hover no-underline shrink-0"
+          >
+            See the numbers →
+          </Link>
+        </div>
+      ))}
 
       <motion.div variants={staggerContainer} initial="hidden" animate="show">
         {/* Desktop table */}

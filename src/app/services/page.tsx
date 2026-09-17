@@ -154,7 +154,9 @@ export default function ServicesPage() {
               <p className="text-sm text-slate mb-md">{tier.for}</p>
               <p className="font-mono text-[24px] leading-[32px] text-ink mb-md">
                 {tier.requestsPerDay === null ? (
-                  "Bespoke"
+                  // Decision 14: Enterprise never shows a figure, on any surface. The CTA below
+                  // says "Contact Sales", so the number has to say the same thing.
+                  "Contact Sales"
                 ) : (
                   <>
                     {formatCount(tier.requestsPerDay)}

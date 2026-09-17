@@ -11,7 +11,8 @@
     "api:mock-paypal": "python3 scripts/mock-paypal.py",
     "api:dev": "npm --prefix workers/api run dev",
     "api:deploy": "npm --prefix workers/api run deploy",
-    "api:migrate": "npm --prefix workers/api run db:migrate"
+    "api:migrate": "npm --prefix workers/api run db:migrate",
+    "api:mock-cloudflare": "python3 scripts/mock-cloudflare.py"
   },
   "dependencies": {
     "clsx": "2.1.1",

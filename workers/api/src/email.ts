@@ -292,3 +292,60 @@ export async function sendContactSalesAck(env: Env, to: string, name: string) {
     console.error("Failed to send contact-sales acknowledgement:", err);
   }
 }
+
+/**
+ * Decision 15 — the upgrade nudge. Suggestion only: nothing is throttled, suspended or
+ * removed, and the email says so, because a customer who reads "you're at 90% of your
+ * tier" will otherwise assume the site is about to break.
+ *
+ * Returns whether it was actually handed to the mail provider, so the caller knows
+ * whether to record that it was sent.
+ */
+export async function sendUpgradeNudgeEmail(
+  env: Env,
+  input: {
+    to: string;
+    name: string;
+    projectName: string;
+    projectId: string;
+    tierId: string;
+    averagePerDay: number;
+    ceiling: number;
+    level: "warn" | "breach";
+  }
+): Promise<boolean> {
+  const over = input.level === "breach";
+  const subject = over
+    ? `${input.projectName} is handling more traffic than its tier is sized for`
+    : `${input.projectName} is approaching its tier's traffic ceiling`;
+
+  const body = `
+    <p>Over the last seven days, <strong>${input.projectName}</strong> averaged
+      ${input.averagePerDay.toLocaleString()} requests a day. Its ${input.tierId} tier is sized for
+      ${input.ceiling.toLocaleString()} requests a day.</p>
+    <p>${
+      over
+        ? "You're consistently above that figure now."
+        : "That's close enough that it's worth talking about before it becomes a problem."
+    }</p>
+    <p><strong>Nothing is being throttled, slowed, or turned off.</strong> Your site keeps serving
+      every request. This is a suggestion, not a warning — the ceilings exist so we can tell you
+      when a bigger tier would give you more headroom, not so we can switch anything off.</p>
+    <p>Moving up takes effect immediately and is prorated. Tiers are never downgraded, so a quiet
+      month won't move you back.</p>
+    <p><a href="${BASE_URL}/dashboard/project?id=${input.projectId}">See the numbers and upgrade</a></p>
+  `;
+
+  try {
+    await env.SEND_EMAIL.send({
+      from: { name: "TechRepubliQ", email: env.FROM_EMAIL },
+      to: [{ name: input.name, email: input.to }],
+      subject,
+      html: baseHtml(LOGO_URL, body, over ? "More headroom available" : "Approaching your tier's ceiling"),
+    });
+    return true;
+  } catch (err) {
+    console.error("Failed to send upgrade nudge:", err);
+    return false;
+  }
+}

@@ -38,6 +38,55 @@ export interface ServiceRow {
   grace_until?: string | null;
 }
 
+export interface AnalyticsPayload {
+  range: "7d" | "30d";
+  connected: boolean;
+  reason: string | null;
+  stale: boolean;
+  sampled: boolean;
+  totals: {
+    requests: number;
+    pageViews: number;
+    bytes: number;
+    cachedBytes: number;
+    cachedRequests: number;
+    uniques: number;
+    threats: number;
+    cacheRatio: number | null;
+    uniquesAreEstimated: boolean;
+  };
+  series: {
+    date: string;
+    requests: number;
+    pageViews: number;
+    bytes: number;
+    cachedBytes: number;
+    cachedRequests: number;
+    uniques: number;
+  }[];
+  countries: { name: string; requests: number; bytes: number; threats: number }[];
+  statuses: { status: number; requests: number }[];
+  browsers: { name: string; pageViews: number }[] | null;
+  limits: { notOlderThan: number | null; maxDuration: number | null };
+  ranges: { id: "7d" | "30d"; label: string; available: boolean; reason: string | null }[];
+  tier: {
+    id: string;
+    requestsPerDay: number | null;
+    averagePerDay: number;
+    ratio: number | null;
+    level: "none" | "warn" | "breach";
+  } | null;
+  mobile: boolean;
+}
+
+export interface TierNudge {
+  projectId: string;
+  name: string;
+  level: "warn" | "breach";
+  observed: number;
+  ceiling: number;
+}
+
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "https://techrepubliq-api.areh4biz.workers.dev";
 
 async function request<T>(
@@ -224,7 +273,7 @@ export const api = {
       }>(`/api/payments/verify?reference=${encodeURIComponent(reference)}`),
   },
   projects: {
-    list: () => request<{ projects: ProjectRow[] }>("/api/projects"),
+    list: () => request<{ projects: ProjectRow[]; nudges: TierNudge[] }>("/api/projects"),
     get: (id: string) =>
       request<{
         project: ProjectRow;
@@ -266,6 +315,13 @@ export const api = {
         method: "POST",
         body: JSON.stringify({ code }),
       }),
+    /**
+     * §12 — traffic, read from Cloudflare through the Worker. `stale` means these numbers
+     * came from our own roll-up because the live query failed; `sampled` means Cloudflare
+     * sampled the data and every figure is an estimate.
+     */
+    analytics: (id: string, range: "7d" | "30d") =>
+      request<AnalyticsPayload>(`/api/projects/${id}/analytics?range=${range}`),
   },
   edits: {
     overview: (id: string) =>

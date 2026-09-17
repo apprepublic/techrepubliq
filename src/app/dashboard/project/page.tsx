@@ -8,13 +8,15 @@ import { api, type ProjectRow, type ServiceRow } from "@/lib/api";
 import { formatMoney } from "@/lib/payments/provider";
 import { cn } from "@/lib/utils";
 import { EditsTab } from "@/components/dashboard/EditsTab";
+import { AnalyticsTab } from "@/components/dashboard/AnalyticsTab";
 
-type Tab = "preview" | "services" | "edits" | "database";
+type Tab = "preview" | "services" | "edits" | "analytics" | "database";
 
 const TABS: { id: Tab; label: string }[] = [
   { id: "preview", label: "Preview" },
   { id: "services", label: "Services" },
   { id: "edits", label: "Edits" },
+  { id: "analytics", label: "Analytics" },
   { id: "database", label: "Database" },
 ];
 
@@ -357,6 +359,8 @@ export default function ProjectPage() {
           </div>
         </div>
       )}
+
+      {tab === "analytics" && <AnalyticsTab projectId={project.id} status={project.status} />}
 
       {tab === "database" && <DatabaseTab projectId={project.id} />}
     </div>

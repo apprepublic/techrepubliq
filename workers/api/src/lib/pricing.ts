@@ -75,6 +75,17 @@ export function tierById(id: string) {
   return TIERS.find((t) => t.id === id);
 }
 
+/**
+ * Upgrade nudge thresholds — decision 15 (§12.7). Nudge only, never enforced: nothing
+ * is throttled or removed when a project crosses these lines.
+ */
+export const TIER_LIMITS = {
+  /** Fraction of the tier's ceiling that starts the conversation. */
+  warnAt: 0.8,
+  /** Consecutive days over the line before the nudge is actually shown. */
+  breachDays: 3,
+} as const;
+
 /* ------------------------------------------------------------------ *
  * Add-ons (PRD §3.3) and one-time services (PRD §4.1)
  * ------------------------------------------------------------------ */

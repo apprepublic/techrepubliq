@@ -1,7 +1,9 @@
 import { error, json, generateId, getAuthToken, verifyToken } from "../utils";
+import { ensureZone } from "../lib/cloudflare";
 import type { Env } from "../index";
 import { TIERS, ADDON_CATALOG, CATEGORIES, addonMonthlyCents } from "../lib/pricing";
 import { sendOtpEmail } from "../email";
+import { nudgesFor } from "../lib/analytics";
 
 /**
  * Projects (WP5) — the surface a customer actually lives in once they've paid.
@@ -16,6 +18,23 @@ async function requireCustomer(request: Request, env: Env): Promise<string | nul
   if (!token) return null;
   const session = await verifyToken(token, env);
   return session?.customer_id ?? null;
+}
+
+/**
+ * Find or create the Cloudflare zone for a project's domain. Zones live in our account
+ * (decision 17). Returns null when analytics isn't configured or the domain isn't known
+ * yet — the project still launches, the tab simply says it's connecting.
+ */
+async function attachZone(env: Env, project: any): Promise<string | null> {
+  if (!project.custom_domain || !env.CF_API_TOKEN) return null;
+  try {
+    const zoneId = await ensureZone(env, project.custom_domain);
+    if (zoneId) return zoneId;
+    console.error(`Couldn't attach a zone for ${project.custom_domain}`);
+  } catch (err) {
+    console.error(`Zone lookup failed for ${project.custom_domain}:`, err);
+  }
+  return null;
 }
 
 async function ownedProject(
@@ -165,7 +184,20 @@ export const projects = {
       }))
     );
 
-    return json({ projects: withServices });
+    // Decision 15: any project that has spent three days against its tier's ceiling gets
+    // a banner in the list. Suggestion only — the response carries the numbers, never a
+    // restriction.
+    const nudges = await nudgesFor(
+      env,
+      withServices.map((project) => project.id)
+    );
+
+    return json({
+      projects: withServices,
+      nudges: withServices
+        .filter((project) => nudges[project.id])
+        .map((project) => ({ projectId: project.id, name: project.name, ...nudges[project.id] })),
+    });
   },
 
   get: async (request: Request, env: Env) => {
@@ -271,14 +303,19 @@ export const projects = {
       return json({ project: { ...project, status: "In preview" } });
     }
 
+    // Attach the project's zone if we can, so the Analytics tab has something to read
+    // (§12.3). Deliberately after the status change and deliberately non-fatal: going
+    // live is the moment the customer paid for, and it must not depend on Cloudflare.
+    const zoneId = await attachZone(env, project);
+
     const launchAt = new Date().toISOString();
     await env.DB.prepare(
-      "UPDATE projects SET status = 'Live', launch_at = ?, updated_at = datetime('now') WHERE id = ?"
+      "UPDATE projects SET status = 'Live', launch_at = ?, zone_id = COALESCE(?, zone_id), updated_at = datetime('now') WHERE id = ?"
     )
-      .bind(launchAt, project.id)
+      .bind(launchAt, zoneId, project.id)
       .run();
 
-    return json({ project: { ...project, status: "Live", launch_at: launchAt } });
+    return json({ project: { ...project, status: "Live", launch_at: launchAt, zone_id: zoneId ?? project.zone_id } });
   },
 
   /**

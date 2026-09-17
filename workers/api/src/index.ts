@@ -13,6 +13,8 @@ import { uploads } from "./routes/uploads";
 import { contactSales } from "./routes/contactSales";
 import { projects } from "./routes/projects";
 import { edits } from "./routes/edits";
+import { analytics } from "./routes/analytics";
+import { rollupAnalytics, checkTierNudges } from "./lib/analytics";
 
 export interface Env {
   DB: D1Database;
@@ -33,6 +35,15 @@ export interface Env {
   PAYPAL_API_BASE?: string;
   /** USD→NGN source for the FX cron. Defaults to open.er-api.com (no key needed). */
   FX_API_URL?: string;
+  /**
+   * Cloudflare GraphQL Analytics (§12). Zone-scoped reads only — the zones are ours
+   * (decision 17). Without a token the Analytics tab says hosting isn't connected yet.
+   */
+  CF_API_TOKEN?: string;
+  /** Where project zones are created. Required only to provision a new zone. */
+  CF_ACCOUNT_ID?: string;
+  /** Defaults to the live Cloudflare API; point it elsewhere to test the whole path. */
+  CF_API_BASE?: string;
   JWT_SECRET: string;
   SEND_EMAIL: SendEmail;
   FROM_EMAIL: string;
@@ -66,6 +77,9 @@ router.post("/api/projects/:id/services/restore", projects.restoreService);
 router.post("/api/projects/:id/migration", projects.requestMigration);
 router.post("/api/projects/:id/migration/confirm", projects.confirmMigration);
 router.get("/api/service-center", projects.serviceCenter);
+
+// Traffic analytics (§12) — Cloudflare is called from the Worker only.
+router.get("/api/projects/:id/analytics", analytics.get);
 
 // Revisions and post-launch edits (PRD §5, §5A)
 router.get("/api/projects/:id/edits", edits.overview);
@@ -118,6 +132,25 @@ export default {
   scheduled: async (_event: ScheduledController, env: Env, ctx: ExecutionContext) => {
     env.ctx = ctx;
     const { rate, refreshed, error } = await refreshFx(env);
+
+    // §12: write yesterday into analytics_daily, then see whether any project has spent
+    // three days against its tier's ceiling. Both are best-effort — a Cloudflare blip
+    // must not stop the FX refresh below from reporting.
+    try {
+      const rollup = await rollupAnalytics(env);
+      if (rollup.rolled) {
+        console.log(`Analytics roll-up: ${rollup.rolled} project(s) written, ${rollup.skipped} skipped`);
+      }
+      const nudges = await checkTierNudges(env);
+      if (nudges.nudged || nudges.cleared) {
+        console.log(
+          `Tier nudges: ${nudges.nudged} active, ${nudges.cleared} clear, ${nudges.emailed} emailed`
+        );
+      }
+    } catch (err) {
+      console.error("Nightly analytics run failed:", err);
+    }
+
     // Dunning: charge whatever fell due, open grace windows, and hand defaults to a human.
     const dunning = await runDunning(env);
     if (dunning.charged || dunning.failed || dunning.ended) {

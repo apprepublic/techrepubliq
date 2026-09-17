@@ -363,8 +363,14 @@ workers/api/src/payments/resolve.ts  resolveProvider(country, currency)
 
 - `projects.zone_id` (and `rum_site_tag`, unused in v1) set at Launch; a single `CF_API_TOKEN` in Worker secrets; **Cloudflare is only ever called from the Worker**, never the browser.
 - `GET /api/projects/:id/analytics?range=7d|30d` → builds the GraphQL query, reads `settings.notOlderThan` for that zone (cached daily), returns normalized JSON.
-- **Caching:** KV (15 min) for live tiles; **Cron Worker** nightly writes the previous day into `analytics_daily` → history beyond Cloudflare retention, at zero query cost per dashboard view.
+- **Caching:** 15 min for live tiles; **Cron Worker** nightly writes the previous day into `analytics_daily` → history beyond Cloudflare retention, at zero query cost per dashboard view.
 - Cap zones per cron run and rely on account-based rate limiting; 429 → exponential backoff, serve last-known rollup.
+
+**Two implementation calls made while building it**
+
+- **The tile cache lives in D1 (`analytics_cache`), not KV.** KV would need a new binding and a namespace id that only exists on the deployed account, so the local copy and production would have been configured differently. A table behaves identically in both, and a 15-minute cache is read-heavy but tiny.
+- **The zone is attached at launch, and a failure there is swallowed.** Launch is the moment the customer paid for; it must not depend on Cloudflare answering. If the zone can't be found or created the project still goes live and the tab says hosting is connecting — `attachZone` logs and returns null.
+- **Yesterday is the last day in every window.** Today's numbers are still being written, so including them made every chart look like traffic was collapsing.
 
 ### 12.4 Analytics tab — widget↔field mapping
 
@@ -491,6 +497,8 @@ Rules
 | **5** | WP5 dashboard + project tabs (Preview/Services/Database) | WP0, DB | Medium–high | ✅ **Landed** — `0005_projects.sql`; projects are created from a paid order; `/api/projects` (+ services/cancel/restore, launch, database, OTP migration, service-center); dashboard nav Projects·Subscriptions·Service Center·Account·Past orders; project page with Preview/Services/Database tabs and the installment card; historical orders moved to `/dashboard/orders`. Analytics and Email Center tabs arrive with PR 7 |
 | **6** | WP6 installments + reviews + post-launch edits | WP4, WP5 | Medium | ✅ **Landed** — review counter with $10/+2 and $15/+3 packs, refusable after launch; post-launch edits priced per-edit (rates only, $25 floor) or drawn from a monthly plan ($100/10, $200/25, $500/50, $1,000/∞) with capped rollover; all purchases charge the card saved at checkout. Installments were already done in PR 4 part 2 |
 | **7** | §12 Analytics (Cloudflare) + §13 Email Center + WP7 policy copy | WP5 | Medium (external APIs) |
+| **7a** | §12 Analytics | WP5 | Medium | ✅ **Landed** — `0009_analytics.sql`; `workers/api/src/lib/cloudflare.ts` (GraphQL client, settings discovery, 429 backoff) + `lib/analytics.ts` (read, nightly roll-up, tier nudge); `GET /api/projects/:id/analytics`; Analytics tab; nudge banner on the projects list. Zones are attached at launch. Verified end to end against `scripts/mock-cloudflare.py` |
+| **7b** | §13 Email Center + WP7 policy copy | WP5, 7a | Medium | ⏳ **Next** |
 
 PRs 1 and 2 are independent. None touches the OBJ or GIF-panel code.
 
@@ -505,7 +513,9 @@ PRs 1 and 2 are independent. None touches the OBJ or GIF-panel code.
 5. **A real off-session charge has never run against a live provider.** The sandbox has no network, so charges were verified against `scripts/mock-paypal.py` (PayPal's base URL is configurable, which makes this possible). Test with Stripe test keys and a real card before taking installments or one-click purchases live.
 6. **PayPal customers can't one-click buy edits yet.** A one-time PayPal capture yields no reusable method — that needs a Vault setup token in `startIntent` and the `VAULT.PAYMENT-TOKEN.CREATED` / `BILLING.SUBSCRIPTION.ACTIVATED` handlers. Until then a PayPal customer buying a review pack gets the "no card on file" answer and is routed to the Service Center.
 6. **New secrets to set before deploy:** `PAYSTACK_PUBLIC_KEY`, `STRIPE_PUBLISHABLE_KEY`, `STRIPE_WEBHOOK_SECRET`, `PAYPAL_CLIENT_ID`, `PAYPAL_CLIENT_SECRET`, `PAYPAL_WEBHOOK_ID`. `FX_API_URL` is already set in `wrangler.toml` to open.er-api.com (no key); swap it if you pick a provider with one.
-7. **Remote D1 migrations are unverified.** All four files (`0001`–`0004_contact_sales`) apply cleanly to a local database; nobody has confirmed whether they were ever applied to the production database `632bb22e…`. Check with `wrangler d1 migrations list techrepubliq --remote` before deploy.
+7. **Analytics needs two secrets before it does anything:** `CF_API_TOKEN` (zone-scoped read on every project zone) and `CF_ACCOUNT_ID` (only to provision a new zone at launch). Without a token every project renders "Traffic analytics connect when your project's hosting goes live" rather than an error, so analytics can ship turned off.
+8. **No zone plan has been chosen for real** (§12.5). The code reads `notOlderThan` per zone at runtime and disables whichever date preset the plan can't serve, so the Free-vs-Business call doesn't block shipping — but it does decide how far back customers can look.
+9. **Remote D1 migrations are unverified.** All four files (`0001`–`0004_contact_sales`) apply cleanly to a local database; nobody has confirmed whether they were ever applied to the production database `632bb22e…`. Check with `wrangler d1 migrations list techrepubliq --remote` before deploy.
 
 Everything else from the first round is resolved in §9.
 
@@ -534,7 +544,8 @@ grep -rnE "#[0-9A-Fa-f]{6}" src/ --include=*.tsx --include=*.ts | grep -v "src/a
 - [ ] Client and server totals agree; monthly = annual × 1.15 ÷ 12 to the cent; Enterprise shows no number
 - [ ] 12 installments sum to the fee exactly; one-time = 15% off; `/services` and every `/services/<slug>` render in dark and light
 - [ ] Paystack + Stripe + PayPal happy paths and webhook signature verification (incl. `charge_authorization` for installments)
-- [ ] Analytics: 429/backoff path, `notOlderThan`-driven date presets, "estimated" chip when `sampleInterval > 1`
+- [x] Analytics: 429/backoff path, `notOlderThan`-driven date presets, "estimated" chip when `sampleInterval > 1`
+      — all three exercised against the mock: two 429s then success (2.9s, live figures); a permanent 429 falls back to the roll-up marked stale; a 7-day-retention zone refuses 30d with the reason and still serves 7d
 - [ ] `npm ci && npx tsc --noEmit && npm run lint && npm run build`
 
 ---
@@ -583,6 +594,7 @@ Patching the tag alone would have left a config where `wrangler deploy` from the
 | --- | --- |
 | `npm run api:setup` | installs worker deps and creates `.dev.vars` from `.dev.vars.example` (dummy test values) if it's missing — run this first in a fresh checkout |
 | `npm run api:mock-paypal` | runs `scripts/mock-paypal.py` on :8788 — set `PAYPAL_API_BASE=http://127.0.0.1:8788` in `.dev.vars` and the PayPal rail, including off-session charges, works with no network |
+| `npm run api:mock-cloudflare` | runs `scripts/mock-cloudflare.py` on :8789 — set `CF_API_BASE=http://127.0.0.1:8789` (plus any `CF_API_TOKEN` / `CF_ACCOUNT_ID`) in `.dev.vars` and the whole analytics path runs with no network. `POST /__mock/config` sets daily volume, retention, sampling and how many 429s to serve first |
 | `npm run api:dev` | `wrangler dev` — pass `--compatibility-date 2026-05-03`; local workerd is older than the committed `2026-08-01` and rejects it |
 | `npm run api:deploy` | deploys the Worker |
 | `npm run api:migrate` | `wrangler d1 migrations apply techrepubliq` — **remote**. Append `-- --local` to rehearse against a local copy |

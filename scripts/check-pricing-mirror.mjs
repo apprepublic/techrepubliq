@@ -51,6 +51,10 @@ eq(
   server.TIERS.map((t) => [t.id, t.name, t.monthlyCents, t.emailPerDay, t.revisions, t.requestsPerDay])
 );
 
+// Tier-limit nudge thresholds (decision 15)
+eq("TIER_LIMITS.warnAt", client.TIER_LIMITS.warnAt, server.TIER_LIMITS.warnAt);
+eq("TIER_LIMITS.breachDays", client.TIER_LIMITS.breachDays, server.TIER_LIMITS.breachDays);
+
 // Add-ons and one-time services
 eq(
   "ADDON_CATALOG",
