@@ -6,12 +6,15 @@ Guards the three frozen constraints from the UX plan (§0).
   2. The second section below the hero — the GIF stays, container layout preserved.
   3. Styling consistency (a styling change can't be detected by hash, but the two
      fingerprinted blocks are the ones a careless edit breaks).
+  4. Every link that navigates to a page carries target="_top", so the preview breaks
+     out of the iframe it's shown in instead of navigating inside it.
 
 Run:  python3 scripts/check-guardrails.py
 Exit code 0 = all fingerprints match the recorded baseline.
 """
 
 import hashlib
+import re
 import sys
 
 HTML = "public/TechRepubliQ-preview_v7.html"
@@ -62,6 +65,23 @@ def check(name, value, expected, where=""):
     return ok
 
 
+def page_links_missing_breakout(lines):
+    """Links that navigate to a page but don't break out of the preview iframe.
+
+    Only real page navigations count. In-page anchors must NOT carry target="_top" — it
+    would reload the page instead of scrolling — and mailto/tel never navigate the frame.
+    """
+    missing = []
+    for lineno, line in enumerate(lines, 1):
+        for match in re.finditer(rb'<a\s[^>]*href="([^"]+)"[^>]*>', line):
+            href, tag = match.group(1), match.group(0)
+            if href.startswith(b"#") or href.startswith((b"mailto:", b"tel:")):
+                continue
+            if b'target="_top"' not in tag:
+                missing.append((lineno, href.decode("utf-8", "replace")))
+    return missing
+
+
 def main():
     print("Guardrail fingerprints for %s\n" % HTML)
     lines = read_lines()
@@ -92,6 +112,16 @@ def main():
     ring = sum(1 for l in lines if b"ring3d" in l)
     check("anim.gif count", anim, BASELINE["anim_gif"], "GIF must stay referenced exactly once")
     check("ring3d count", ring, BASELINE["ring3d"], "OBJ wiring references")
+
+    broken = page_links_missing_breakout(lines)
+    check(
+        "iframe breakout",
+        len(broken),
+        0,
+        'page links must carry target="_top"',
+    )
+    for lineno, href in broken:
+        print("      line %d: %s" % (lineno, href))
 
     print()
     if failures:

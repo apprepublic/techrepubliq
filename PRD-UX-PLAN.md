@@ -569,7 +569,7 @@ grep -rnE "#[0-9A-Fa-f]{6}" src/ --include=*.tsx --include=*.ts | grep -v "src/a
 - [ ] Dark + light: hero, panel section, services, **tiers**, process + contrast band, testimonials, preview, CTA, footer
 - [ ] ≤860px hero (ring visible, CTA above the fold); ≤640px grids
 - [ ] OBJ spins on scroll, settles, never drifts; GIF still renders in the panel
-- [ ] Every cross-page link inside the iframe has `target="_top"`
+- [x] Every cross-page link inside the iframe has `target="_top"` — one `/login` nav link didn't, against 20 that did, so the preview silently navigated inside the frame instead of breaking out. Fixed, and `check-guardrails.py` now enforces it (a page link without `target="_top"` fails with its line number). In-page anchors are deliberately exempt: `target="_top"` on a `#hash` link reloads the page instead of scrolling.
 - [x] Client and server totals agree; monthly = annual × 1.15 ÷ 12 to the cent; Enterprise shows no number
 - [x] 12 installments sum to the fee exactly; one-time = 15% off — **`npm run check:money`**, 188 assertions across 12 fee values and both copies. The mirror check only proves the two models agree on their *constants*; this proves the outputs keep their promises. Verified it actually fails: swapping `floor()` for `round()` when splitting the fee over-charges by up to 4¢ (12 payments of 11 sum to 12), and a 13% discount is caught immediately.
 - [ ] `/services` and every `/services/<slug>` render in dark and light
