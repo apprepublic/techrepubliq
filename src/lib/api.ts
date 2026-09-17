@@ -1,5 +1,43 @@
 import type { PaymentIntent, ProviderId } from "@/lib/payments/provider";
 
+export interface ProjectRow {
+  id: string;
+  customer_id: string;
+  order_id: string | null;
+  name: string;
+  category: string;
+  tier_id: string;
+  status: string;
+  preview_url: string | null;
+  custom_domain: string | null;
+  launch_at: string | null;
+  dev_fee_cents: number;
+  cadence: string;
+  created_at: string;
+  services?: ServiceRow[];
+  installments?: {
+    planId: string;
+    paid: number;
+    count: number;
+    currency: string;
+    nextDueAt: string | null;
+    nextAmountMinor: number | null;
+    nextSeq: number | null;
+    status: string;
+  } | null;
+}
+
+export interface ServiceRow {
+  id: string;
+  project_id?: string;
+  name: string;
+  kind: "base" | "addon";
+  monthly_cents: number;
+  status: string;
+  renews_on: string | null;
+  grace_until?: string | null;
+}
+
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "https://techrepubliq-api.areh4biz.workers.dev";
 
 async function request<T>(
@@ -184,6 +222,54 @@ export const api = {
         fxRateUsed: number | null;
         orderId: string | null;
       }>(`/api/payments/verify?reference=${encodeURIComponent(reference)}`),
+  },
+  projects: {
+    list: () => request<{ projects: ProjectRow[] }>("/api/projects"),
+    get: (id: string) =>
+      request<{
+        project: ProjectRow;
+        services: ServiceRow[];
+        revisions: { included: number; used: number; purchased: number };
+        installments: {
+          planId: string;
+          paid: number;
+          count: number;
+          currency: string;
+          nextDueAt: string | null;
+          nextAmountMinor: number | null;
+          nextSeq: number | null;
+          status: string;
+        } | null;
+      }>(`/api/projects/${id}`),
+    launch: (id: string) =>
+      request<{ project: ProjectRow }>(`/api/projects/${id}/launch`, { method: "POST" }),
+    database: (id: string) =>
+      request<{ applicable: boolean; message?: string; records?: Record<string, number>; note?: string }>(
+        `/api/projects/${id}/database`
+      ),
+    cancelService: (id: string, serviceId: string) =>
+      request<{ service: ServiceRow }>(`/api/projects/${id}/services/cancel`, {
+        method: "POST",
+        body: JSON.stringify({ serviceId }),
+      }),
+    restoreService: (id: string, serviceId: string) =>
+      request<{ ok: boolean }>(`/api/projects/${id}/services/restore`, {
+        method: "POST",
+        body: JSON.stringify({ serviceId }),
+      }),
+    requestMigration: (id: string) =>
+      request<{ sent: boolean; expiresAt: string }>(`/api/projects/${id}/migration`, {
+        method: "POST",
+      }),
+    confirmMigration: (id: string, code: string) =>
+      request<{ ok: boolean; bundle: { note: string } }>(`/api/projects/${id}/migration/confirm`, {
+        method: "POST",
+        body: JSON.stringify({ code }),
+      }),
+  },
+  serviceCenter: {
+    info: () =>
+      request<{ handled: string[]; note: string; contact: string }>("/api/service-center"),
   },
   migrations: {
     request: (body: { orderId: string; scope: "frontend" | "full" }) =>

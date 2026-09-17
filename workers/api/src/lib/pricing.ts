@@ -80,9 +80,9 @@ export function tierById(id: string) {
  * ------------------------------------------------------------------ */
 
 export const ADDON_CATALOG = [
-  { id: "google", kind: "google", multiple: 0.4 },
-  { id: "email", kind: "email", multiple: 1 },
-  { id: "ai", kind: "ai", multiple: 1 },
+  { id: "google", kind: "google", label: "Google-powered services", multiple: 0.4 },
+  { id: "email", kind: "email", label: "Email Center", multiple: 1 },
+  { id: "ai", kind: "ai", label: "AI feature add-on", multiple: 1 },
 ] as const;
 
 export type AddonId = (typeof ADDON_CATALOG)[number]["id"];

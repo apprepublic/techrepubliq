@@ -83,6 +83,24 @@ function money(amountMinor: number, currency: string): string {
   return `${currency} ${(amountMinor / 100).toLocaleString()}`;
 }
 
+/** One-time code for owner-only actions — cancellation and migration (§6). */
+export async function sendOtpEmail(env: Env, to: string, code: string, projectName: string) {
+  try {
+    await env.SEND_EMAIL.send({
+      from: { name: "TechRepubliQ", email: env.FROM_EMAIL },
+      to: [{ name: "Customer", email: to }],
+      subject: "Your verification code",
+      html: baseHtml(LOGO_URL, `
+        <p>Your code for <strong>${projectName}</strong> is:</p>
+        <p style="font-family:'JetBrains Mono',monospace;font-size:28px;letter-spacing:6px;color:#12151C;margin:24px 0">${code}</p>
+        <p>It expires in 15 minutes. If you didn't ask for it, you can ignore this email — nothing has changed on your project.</p>
+      `, "Verification code"),
+    });
+  } catch (err) {
+    console.error("Failed to send OTP email:", err);
+  }
+}
+
 /**
  * A nudge while an installment is in its 7-day grace window. Plain about what happens
  * next — no threats, no vagueness (PRD §4.5).

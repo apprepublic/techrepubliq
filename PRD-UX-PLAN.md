@@ -314,7 +314,7 @@ workers/api/src/payments/resolve.ts  resolveProvider(country, currency)
 
 ## 11. Installments on the one-time development fee (PRD §4.6)
 
-**Status: implemented** — `workers/api/src/lib/installments.ts` plus migration `0007_installments.sql`. A plan is written when an installment purchase succeeds; the daily Cron Worker duns whatever is due. The one piece not built is the project-page widget showing "2 of 12 paid · next ₦… on 12 Oct", because that surface arrives with WP5.
+**Status: implemented** — `workers/api/src/lib/installments.ts` plus migration `0007_installments.sql`. A plan is written when an installment purchase succeeds; the daily Cron Worker duns whatever is due; and the project page shows "Development fee: 2 of 12 paid · next ₦… on 12 Oct" with the plan's status.
 
 **Model:** the fee is a debt schedule, not a subscription.
 - `installment_plans(project_id, total_cents, currency, count, interval, started_at, status)`; `installments(id, plan_id, seq, due_at, amount_cents, status ∈ {Scheduled, Paid, Due, Grace, Failed}, attempts, paid_at)`.
@@ -485,8 +485,8 @@ Rules
 | **1** | WP1 landing (frontend only) | — | Low; constraints verified by md5 | ✅ **Landed — `9acc338`** (hero, panel text, 7 categories, tiers section, journey + "No tokens" band, CTA, footer/nav; both md5 fingerprints unchanged; `tsc` + `next build` clean) |
 | **2** | WP0 model + heuristic engine + WP2 services IA + WP8 | — | Low–medium (slug change) | ✅ **Landed — `7291e85`** (`src/lib/product.ts` + `PricingEngine` seam + heuristic; server mirror in `workers/api/src/lib/pricing.ts` with `scripts/check-pricing-mirror.mjs` drift guard; `/services` index, 7 detail pages, retired-slug page; "Request a Quote" retired. One open item: fee calibration, §17.1) |
 | **3** | WP3 quote/intake + uploads + enterprise form | WP0, WP2 | Medium | ✅ **Landed — `b6ea079`** (5-step `/quote` with the §4.3 metrics and tier recommendation, `POST /api/uploads` → R2, `POST /api/contact-sales` → admin@techrepubliq.com + ack, server-side quote pricing with clamped estimates, `/quote/result` deleted, `?category=`/`?tier=` wired. Client and server totals verified identical; routes exercised locally. R2 bucket provisioned) |
-| **4** | WP4 payments: provider interface, PayPal rail, FX fix, invoices, signature verification | WP3 | Medium (money path) | ✅ **Landed** — part 1: provider seam, three rails, FX cron + locked rate, verified webhooks, server-side recompute, checkout conversion (§10, §20). Part 2: installments (§11). **Still to do:** the project-page "2 of 12 paid" widget, which needs WP5's project surface |
-| **5** | WP5 dashboard + project tabs (Preview/Services/Database) | WP0, DB | Medium–high |
+| **4** | WP4 payments: provider interface, PayPal rail, FX fix, invoices, signature verification | WP3 | Medium (money path) | ✅ **Landed** — part 1: provider seam, three rails, FX cron + locked rate, verified webhooks, server-side recompute, checkout conversion (§10, §20). Part 2: installments (§11). The "2 of 12 paid · next ₦… on <date>" widget landed with PR 5, which built the project surface it needed |
+| **5** | WP5 dashboard + project tabs (Preview/Services/Database) | WP0, DB | Medium–high | ✅ **Landed** — `0005_projects.sql`; projects are created from a paid order; `/api/projects` (+ services/cancel/restore, launch, database, OTP migration, service-center); dashboard nav Projects·Subscriptions·Service Center·Account·Past orders; project page with Preview/Services/Database tabs and the installment card; historical orders moved to `/dashboard/orders`. Analytics and Email Center tabs arrive with PR 7 |
 | **6** | WP6 installments + reviews + post-launch edits | WP4, WP5 | Medium |
 | **7** | §12 Analytics (Cloudflare) + §13 Email Center + WP7 policy copy | WP5 | Medium (external APIs) |
 

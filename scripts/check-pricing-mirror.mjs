@@ -54,8 +54,8 @@ eq(
 // Add-ons and one-time services
 eq(
   "ADDON_CATALOG",
-  client.ADDON_CATALOG.map((a) => [a.id, a.kind, a.multiple]),
-  server.ADDON_CATALOG.map((a) => [a.id, a.kind, a.multiple])
+  client.ADDON_CATALOG.map((a) => [a.id, a.kind, a.label, a.multiple]),
+  server.ADDON_CATALOG.map((a) => [a.id, a.kind, a.label, a.multiple])
 );
 eq(
   "ONE_TIME_SERVICES",

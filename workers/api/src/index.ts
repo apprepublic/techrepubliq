@@ -11,6 +11,7 @@ import { migrations } from "./routes/migrations";
 import { customers } from "./routes/customers";
 import { uploads } from "./routes/uploads";
 import { contactSales } from "./routes/contactSales";
+import { projects } from "./routes/projects";
 
 export interface Env {
   DB: D1Database;
@@ -53,6 +54,17 @@ router.get("/api/quotes/:ref", quotes.get);
 // Intake assets (R2) + Enterprise leads
 router.post("/api/uploads", uploads.create);
 router.post("/api/contact-sales", contactSales.submit);
+
+// Projects (WP5)
+router.get("/api/projects", projects.list);
+router.get("/api/projects/:id", projects.get);
+router.get("/api/projects/:id/database", projects.database);
+router.post("/api/projects/:id/launch", projects.launch);
+router.post("/api/projects/:id/services/cancel", projects.cancelService);
+router.post("/api/projects/:id/services/restore", projects.restoreService);
+router.post("/api/projects/:id/migration", projects.requestMigration);
+router.post("/api/projects/:id/migration/confirm", projects.confirmMigration);
+router.get("/api/service-center", projects.serviceCenter);
 
 // Orders
 router.get("/api/orders", orders.list);

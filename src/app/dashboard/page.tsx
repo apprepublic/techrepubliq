@@ -1,40 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { StatusBadge } from "@/components/StatusBadge";
-import { Button } from "@/components/Button";
+import { useEffect, useState } from "react";
 import { motion } from "motion/react";
-
-const orders = [
-  {
-    id: "ORD-001",
-    service: "Web Development",
-    date: "2026-08-15",
-    status: "In Progress" as const,
-    referenceId: "QR-XK8F2A",
-  },
-  {
-    id: "ORD-002",
-    service: "AI Integration",
-    date: "2026-07-28",
-    status: "Delivered" as const,
-    referenceId: "QR-M3P9Q1",
-  },
-  {
-    id: "ORD-003",
-    service: "Web / UI Design",
-    date: "2026-07-10",
-    status: "Paid" as const,
-    referenceId: "QR-J2R7B4",
-  },
-];
+import { StatusBadge, type ProjectStatus } from "@/components/StatusBadge";
+import { Button } from "@/components/Button";
+import { api, type ProjectRow } from "@/lib/api";
 
 const staggerContainer = {
   hidden: { opacity: 0 },
-  show: {
-    opacity: 1,
-    transition: { staggerChildren: 0.05 },
-  },
+  show: { opacity: 1, transition: { staggerChildren: 0.05 } },
 };
 
 const staggerItem = {
@@ -42,98 +17,124 @@ const staggerItem = {
   show: { opacity: 1, y: 0 },
 };
 
-export default function DashboardPage() {
-  return (
-    <div>
-      <h1 className="font-display text-[28px] leading-[36px] font-semibold text-ink mb-lg">
-        Orders
-      </h1>
+function monthlyTotal(project: ProjectRow): number {
+  return (project.services ?? []).reduce((sum, service) => sum + service.monthly_cents, 0);
+}
 
-      {orders.length === 0 ? (
-        <div className="text-center py-xl">
-          <p className="text-base text-slate mb-lg">
-            You haven&apos;t placed any orders yet.
+export default function DashboardPage() {
+  const [projects, setProjects] = useState<ProjectRow[] | null>(null);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    api.projects
+      .list()
+      .then((res) => setProjects(res.projects))
+      .catch(() => {
+        setProjects([]);
+        setError("Couldn't load your projects. Refresh to try again.");
+      });
+  }, []);
+
+  if (projects === null) {
+    return (
+      <div className="space-y-sm">
+        <div className="h-8 w-40 bg-accent-dim rounded-sm animate-pulse" />
+        <div className="h-24 w-full bg-accent-dim rounded-sm animate-pulse" />
+      </div>
+    );
+  }
+
+  if (projects.length === 0) {
+    return (
+      <div>
+        <h1 className="font-display text-[28px] leading-[36px] font-semibold text-ink mb-lg">
+          Projects
+        </h1>
+        <div className="text-center py-xl border border-line rounded-sm">
+          <p className="text-base text-slate mb-md">
+            No projects yet. Describe what you need and we&apos;ll scope it.
           </p>
           <Link href="/quote">
             <Button>Get Started</Button>
           </Link>
         </div>
-      ) : (
-        <motion.div
-          variants={staggerContainer}
-          initial="hidden"
-          animate="show"
-        >
-          {/* Desktop table */}
-          <table className="hidden md:table w-full text-sm">
-            <thead>
-              <tr className="border-b border-line text-left text-xs text-slate uppercase tracking-wider">
-                <th className="pb-sm font-medium">Reference</th>
-                <th className="pb-sm font-medium">Service</th>
-                <th className="pb-sm font-medium">Date</th>
-                <th className="pb-sm font-medium">Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {orders.map((order) => (
-                <motion.tr
-                  key={order.id}
-                  variants={staggerItem}
-                  className="border-b border-line hover:bg-accent-dim/40 transition-colors duration-150"
-                >
-                  <td className="py-md">
-                    <Link
-                      href={`/dashboard/orders/${order.id}`}
-                      className="font-mono text-ink no-underline hover:text-accent transition-colors duration-150 block w-full"
-                    >
-                      {order.referenceId}
-                    </Link>
-                  </td>
-                  <td className="py-md">
-                    <Link
-                      href={`/dashboard/orders/${order.id}`}
-                      className="text-ink no-underline hover:text-accent transition-colors duration-150 block w-full"
-                    >
-                      {order.service}
-                    </Link>
-                  </td>
-                  <td className="py-md">
-                    <Link
-                      href={`/dashboard/orders/${order.id}`}
-                      className="font-mono text-slate no-underline hover:text-accent transition-colors duration-150 block w-full"
-                    >
-                      {order.date}
-                    </Link>
-                  </td>
-                  <td className="py-md">
-                    <StatusBadge status={order.status} />
-                  </td>
-                </motion.tr>
-              ))}
-            </tbody>
-          </table>
+        {error && <p className="text-sm text-error mt-md">{error}</p>}
+      </div>
+    );
+  }
 
-          {/* Mobile cards */}
-          <div className="md:hidden space-y-sm">
-            {orders.map((order) => (
-              <Link
-                key={order.id}
-                href={`/dashboard/orders/${order.id}`}
-                className="block border border-line rounded-sm p-md no-underline hover:border-ink transition-colors duration-150"
+  return (
+    <div>
+      <div className="flex items-baseline justify-between mb-lg gap-sm flex-wrap">
+        <h1 className="font-display text-[28px] leading-[36px] font-semibold text-ink">
+          Projects
+        </h1>
+        <Link href="/quote" className="text-sm text-accent hover:text-accent-hover no-underline">
+          Start another project →
+        </Link>
+      </div>
+
+      <motion.div variants={staggerContainer} initial="hidden" animate="show">
+        {/* Desktop table */}
+        <table className="hidden md:table w-full text-sm">
+          <thead>
+            <tr className="border-b border-line text-left text-xs text-slate uppercase tracking-wider">
+              <th className="pb-sm font-medium">Project</th>
+              <th className="pb-sm font-medium">Category</th>
+              <th className="pb-sm font-medium">Tier</th>
+              <th className="pb-sm font-medium">Services</th>
+              <th className="pb-sm font-medium">Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {projects.map((project) => (
+              <motion.tr
+                key={project.id}
+                variants={staggerItem}
+                className="border-b border-line hover:bg-accent-dim/40 transition-colors duration-150"
               >
-                <div className="flex items-center justify-between mb-sm">
-                  <span className="font-mono text-sm text-ink">
-                    {order.referenceId}
-                  </span>
-                  <StatusBadge status={order.status} />
-                </div>
-                <p className="text-sm text-ink">{order.service}</p>
-                <p className="text-xs text-slate font-mono">{order.date}</p>
-              </Link>
+                <td className="py-md">
+                  <Link
+                    href={`/dashboard/project?id=${project.id}`}
+                    className="text-ink no-underline hover:text-accent transition-colors duration-150 block"
+                  >
+                    {project.name}
+                    <span className="block font-mono text-xs text-slate">{project.id}</span>
+                  </Link>
+                </td>
+                <td className="py-md text-slate">{project.category.replace(/-/g, " ")}</td>
+                <td className="py-md text-slate capitalize">{project.tier_id}</td>
+                <td className="py-md font-mono text-slate">
+                  ${(monthlyTotal(project) / 100).toLocaleString()}/mo
+                </td>
+                <td className="py-md">
+                  <StatusBadge status={project.status as ProjectStatus} />
+                </td>
+              </motion.tr>
             ))}
-          </div>
-        </motion.div>
-      )}
+          </tbody>
+        </table>
+
+        {/* Mobile cards */}
+        <div className="md:hidden space-y-sm">
+          {projects.map((project) => (
+            <Link
+              key={project.id}
+              href={`/dashboard/project?id=${project.id}`}
+              className="block border border-line rounded-sm p-md no-underline hover:border-ink transition-colors duration-150"
+            >
+              <div className="flex items-center justify-between mb-sm gap-sm">
+                <span className="text-sm text-ink">{project.name}</span>
+                <StatusBadge status={project.status as ProjectStatus} />
+              </div>
+              <p className="text-xs text-slate font-mono">{project.id}</p>
+              <p className="text-xs text-slate capitalize">
+                {project.tier_id} · ${(monthlyTotal(project) / 100).toLocaleString()}/mo
+              </p>
+            </Link>
+          ))}
+        </div>
+      </motion.div>
     </div>
   );
 }

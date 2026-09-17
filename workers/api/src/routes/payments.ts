@@ -4,6 +4,7 @@ import type { Env } from "../index";
 import { computePrice, type ComplexityId, type TierId } from "../lib/pricing";
 import { getRate, isStale, toPresentment, type FxRate } from "../lib/fx";
 import { createPlanForPayment, installmentSchedule } from "../lib/installments";
+import { createProjectForOrder } from "./projects";
 import {
   getProvider,
   presentmentCurrency,
@@ -208,8 +209,15 @@ async function onPaymentSucceeded(env: Env, event: NormalizedEvent): Promise<voi
           .first<any>()
       : null;
 
-    if (quote && (quote.dev_fee_mode ?? "once") === "installments") {
-      const price = recomputeFromQuote(quote, quote.cadence ?? "annual", "installments");
+    const price = quote
+      ? recomputeFromQuote(
+          quote,
+          quote.cadence ?? "annual",
+          (quote.dev_fee_mode ?? "once") === "installments" ? "installments" : "once"
+        )
+      : null;
+
+    if (quote && price && (quote.dev_fee_mode ?? "once") === "installments") {
       const rate = intent.fx_rate_used ?? null;
       await createPlanForPayment(env, {
         intentId: intent.id,
@@ -223,8 +231,21 @@ async function onPaymentSucceeded(env: Env, event: NormalizedEvent): Promise<voi
         toMinor: (cents) => (rate ? Math.round(cents * rate) : Math.round(cents)),
       });
     }
+    // The project the customer now owns — the dashboard's reason to exist.
+    if (quote && price && customerId) {
+      await createProjectForOrder(env, {
+        customerId,
+        orderId,
+        name: "New project",
+        category: quote.service_slug,
+        tierId: quote.tier_id ?? "startup",
+        addonIds: parseJson<string[]>(quote.addons, []),
+        devFeeCents: price.devFee.listCents,
+        cadence: quote.cadence ?? "annual",
+      });
+    }
   } catch (err) {
-    console.error("Creating the installment plan failed:", err);
+    console.error("Creating the installment plan or project failed:", err);
   }
 
   try {
