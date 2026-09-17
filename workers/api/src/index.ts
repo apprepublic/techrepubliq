@@ -1,6 +1,7 @@
 import { Router } from "itty-router";
 import { error, json } from "./utils";
 import { refreshFx, isStale } from "./lib/fx";
+import { runDunning } from "./lib/installments";
 import { sendAlertEmail } from "./email";
 import { auth } from "./routes/auth";
 import { quotes } from "./routes/quotes";
@@ -96,6 +97,13 @@ export default {
   scheduled: async (_event: ScheduledController, env: Env, ctx: ExecutionContext) => {
     env.ctx = ctx;
     const { rate, refreshed, error } = await refreshFx(env);
+    // Dunning: charge whatever fell due, open grace windows, and hand defaults to a human.
+    const dunning = await runDunning(env);
+    if (dunning.charged || dunning.failed || dunning.ended) {
+      console.log(
+        `Installments: ${dunning.charged} charged, ${dunning.failed} failed, ${dunning.ended} ended, ${dunning.skipped} awaiting a saved method`
+      );
+    }
 
     if (!refreshed || isStale(rate)) {
       const reason = error ? `the fetch failed: ${error}` : "no rate has been stored yet";

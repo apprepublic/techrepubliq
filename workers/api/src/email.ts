@@ -79,6 +79,79 @@ export async function sendAlertEmail(env: Env, subject: string, bodyHtml: string
   }
 }
 
+function money(amountMinor: number, currency: string): string {
+  return `${currency} ${(amountMinor / 100).toLocaleString()}`;
+}
+
+/**
+ * A nudge while an installment is in its 7-day grace window. Plain about what happens
+ * next — no threats, no vagueness (PRD §4.5).
+ */
+export async function sendInstallmentReminderEmail(
+  env: Env,
+  to: string,
+  installment: {
+    planId: string;
+    seq: number;
+    amountMinor: number;
+    currency: string;
+    daysPastDue: number;
+    graceUntil: string;
+  }
+) {
+  try {
+    await env.SEND_EMAIL.send({
+      from: { name: "TechRepubliQ", email: env.FROM_EMAIL },
+      to: [{ name: "Customer", email: to }],
+      subject: `Payment ${installment.seq} of 12 is overdue`,
+      html: baseHtml(LOGO_URL, `
+        <p>Payment ${installment.seq} of 12 on your development fee — ${money(installment.amountMinor, installment.currency)} — is ${installment.daysPastDue} day${installment.daysPastDue === 1 ? "" : "s"} overdue.</p>
+        <p>We'll retry the card we have on file automatically. Service continues during the grace period, which ends on ${installment.graceUntil}.</p>
+        <p>If that date passes unpaid, the add-on services on your project are removed. The project itself and everything already built stays yours.</p>
+        <p>Plan reference: <span style="font-family:'JetBrains Mono',monospace">${installment.planId}</span></p>
+        <p><a href="${BASE_URL}/dashboard">Review your plan in the dashboard</a></p>
+      `, "Payment overdue"),
+    });
+  } catch (err) {
+    console.error("Failed to send installment reminder:", err);
+  }
+}
+
+/** The grace window closed — tell the customer, and copy the admin. */
+export async function sendInstallmentFailedEmail(
+  env: Env,
+  to: string,
+  installment: { planId: string; seq: number; amountMinor: number; currency: string }
+) {
+  const body = `
+    <p>The grace period on payment ${installment.seq} of 12 (${money(installment.amountMinor, installment.currency)}) has ended without payment.</p>
+    <p>The add-on services attached to this project have been removed. Your project and the work already delivered are untouched, and we'll be in touch about settling the balance.</p>
+    <p>Plan reference: <span style="font-family:'JetBrains Mono',monospace">${installment.planId}</span></p>
+  `;
+  try {
+    await env.SEND_EMAIL.send({
+      from: { name: "TechRepubliQ", email: env.FROM_EMAIL },
+      to: [{ name: "Customer", email: to }],
+      subject: `Grace period ended on payment ${installment.seq} of 12`,
+      html: baseHtml(LOGO_URL, body, "Grace period ended"),
+    });
+  } catch (err) {
+    console.error("Failed to send installment failed email:", err);
+  }
+
+  const admin = env.ADMIN_EMAIL || "admin@techrepubliq.com";
+  try {
+    await env.SEND_EMAIL.send({
+      from: { name: "TechRepubliQ Alerts", email: env.FROM_EMAIL },
+      to: [{ name: "Admin", email: admin }],
+      subject: `Installment defaulted — ${installment.planId} #${installment.seq}`,
+      html: baseHtml(LOGO_URL, `<p>An installment passed its grace period and was defaulted.</p>${body}`, "Installment defaulted"),
+    });
+  } catch (err) {
+    console.error("Failed to send default alert:", err);
+  }
+}
+
 export async function sendVerificationEmail(
   env: Env,
   to: string,

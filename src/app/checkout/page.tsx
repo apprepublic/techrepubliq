@@ -5,7 +5,13 @@ import { motion } from "motion/react";
 import { Button } from "@/components/Button";
 import { services } from "@/lib/utils";
 import { api } from "@/lib/api";
-import { formatMoney, fxLine, PROVIDER_LABEL, type PaymentIntent } from "@/lib/payments/provider";
+import {
+  formatMoney,
+  fxLine,
+  installmentSummary,
+  PROVIDER_LABEL,
+  type PaymentIntent,
+} from "@/lib/payments/provider";
 import { useRouter } from "next/navigation";
 
 declare global {
@@ -71,6 +77,7 @@ export default function CheckoutPage() {
   const service = services.find((s) => s.slug === params.category);
   const total = intent ? formatMoney(intent.amountMinor, intent.currency) : "—";
   const rate = intent ? fxLine(intent.fx, intent.currency) : null;
+  const feeSchedule = intent ? installmentSummary(intent.installments, intent.currency) : null;
 
   const handlePay = async () => {
     if (!intent) return;
@@ -173,6 +180,9 @@ export default function CheckoutPage() {
                 <span className="font-mono text-ink text-lg">{total}</span>
               </div>
               {rate && <p className="text-xs text-slate pt-xs">{rate}</p>}
+              {feeSchedule && (
+                <p className="text-xs text-slate pt-xs">Development fee: {feeSchedule}</p>
+              )}
               {intent?.fx?.stale && (
                 <p className="text-xs text-warning pt-xs">
                   This rate may be out of date — we&apos;ll confirm the final amount before charging.
@@ -193,10 +203,14 @@ export default function CheckoutPage() {
             </p>
 
             <div className="border border-line rounded-sm p-md mb-lg text-sm text-slate bg-paper">
-              <p className="text-ink font-medium mb-sm">No refunds</p>
+              <p className="text-ink font-medium mb-sm">
+                {intent?.installments ? "Twelve payments, no refunds" : "No refunds"}
+              </p>
               <p>
-                Every project is scoped and priced before work starts, and payment is a commitment to
-                the full amount. See the{" "}
+                {intent?.installments
+                  ? "Spreading the fee is a commitment to pay all twelve payments. Service continues during a 7-day grace window if one fails, but cancelling isn't an option once you've started."
+                  : "Every project is scoped and priced before work starts, and payment is a commitment to the full amount."}{" "}
+                See the{" "}
                 <a href="/terms" target="_blank" className="text-accent hover:text-accent-hover underline">
                   Service Agreement
                 </a>{" "}

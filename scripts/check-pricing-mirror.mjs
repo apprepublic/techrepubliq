@@ -100,6 +100,18 @@ if (summed !== fee) failures.push(`installments sum ${summed} != fee ${fee}`);
 if (opts.payOnceCents !== Math.round(fee * (1 - client.ONE_TIME_DISCOUNT)))
   failures.push(`one-time price ${opts.payOnceCents} is not ${client.ONE_TIME_DISCOUNT * 100}% off ${fee}`);
 
+// The 12-way split backs real money now (§11), so check it across awkward amounts:
+// both sides must agree, and the parts must always sum back to the fee exactly.
+for (const feeValue of [0, 1, 11, 12, 13, 999, 92100, 123457, 2500001]) {
+  eq(
+    `devFeeOptions(${feeValue}).perMonthCents`,
+    client.devFeeOptions(feeValue).perMonthCents,
+    server.devFeeOptions(feeValue).perMonthCents
+  );
+  const sum = client.devFeeOptions(feeValue).perMonthCents.reduce((s, n) => s + n, 0);
+  if (sum !== feeValue) failures.push(`split of ${feeValue} sums to ${sum}, not ${feeValue}`);
+}
+
 if (failures.length) {
   console.error("pricing mirror: DRIFT DETECTED\n");
   for (const f of failures) console.error(`  - ${f}`);

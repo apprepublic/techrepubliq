@@ -26,6 +26,13 @@ export interface FxQuote {
  * in the presentment currency. The client renders `amountMinor` and never converts
  * anything itself — the rate came from the server and is locked onto the intent.
  */
+export interface InstallmentEntry {
+  seq: number;
+  dueAt: string;
+  amountCents: number;
+  amountMinor: number;
+}
+
 export interface PaymentIntent {
   id: string;
   quoteReference: string;
@@ -36,7 +43,33 @@ export interface PaymentIntent {
   fx: FxQuote | null;
   discountApplied: boolean;
   discountAmountCents: number;
+  /**
+   * Present only when the customer is spreading the fee: twelve dated payments, the first
+   * taken at checkout. The amounts differ by at most a cent so the twelve sum exactly.
+   */
+  installments: { count: number; schedule: InstallmentEntry[] } | null;
   payload: ProviderPayload;
+}
+
+/** "₦135,582 today, then 11 monthly payments from 15 Oct 2026". */
+export function installmentSummary(
+  installments: PaymentIntent["installments"],
+  currency: string
+): string | null {
+  if (!installments || installments.schedule.length === 0) return null;
+  const [first, ...rest] = installments.schedule;
+  if (rest.length === 0) return `Paying in full today — ${formatMoney(first.amountMinor, currency)}`;
+
+  const dates = rest.map((entry) => new Date(entry.dueAt.replace(" ", "T") + "Z"));
+  const next = dates[0];
+  const formatted = Number.isNaN(next.getTime())
+    ? "next month"
+    : next.toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
+
+  return `${formatMoney(first.amountMinor, currency)} today, then ${rest.length} monthly payments of ${formatMoney(
+    rest[0].amountMinor,
+    currency
+  )} from ${formatted}`;
 }
 
 /** Minor units → display string. NGN has no minor unit in practice; USD keeps cents. */

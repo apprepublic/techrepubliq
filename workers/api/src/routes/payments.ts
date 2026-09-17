@@ -3,6 +3,7 @@ import { sendInvoiceEmail } from "../email";
 import type { Env } from "../index";
 import { computePrice, type ComplexityId, type TierId } from "../lib/pricing";
 import { getRate, isStale, toPresentment, type FxRate } from "../lib/fx";
+import { createPlanForPayment, installmentSchedule } from "../lib/installments";
 import {
   getProvider,
   presentmentCurrency,
@@ -133,6 +134,7 @@ async function onPaymentSucceeded(env: Env, event: NormalizedEvent): Promise<voi
 
   const email = event.email ?? intent.customer_email ?? "";
   const orderId = `ORD-${generateId()}`;
+  const paymentId = `PAY-${generateId()}`;
   const now = new Date().toISOString();
 
   // The event was already recorded by the caller, so a provider retry is deduped — which
@@ -146,7 +148,7 @@ async function onPaymentSucceeded(env: Env, event: NormalizedEvent): Promise<voi
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'Paid', ?)`
     )
       .bind(
-        `PAY-${generateId()}`,
+        paymentId,
         intent.id,
         event.provider,
         event.eventId,
@@ -196,6 +198,33 @@ async function onPaymentSucceeded(env: Env, event: NormalizedEvent): Promise<voi
     await saveMethodFor(env, event, email);
   } catch (err) {
     console.error("Saving the payment method failed:", err);
+  }
+
+  // Installments (§11): the fee becomes a 12-payment schedule, payment 1 taken now.
+  try {
+    const quote = intent.quote_reference
+      ? await env.DB.prepare("SELECT * FROM quotes WHERE reference_id = ?")
+          .bind(intent.quote_reference)
+          .first<any>()
+      : null;
+
+    if (quote && (quote.dev_fee_mode ?? "once") === "installments") {
+      const price = recomputeFromQuote(quote, quote.cadence ?? "annual", "installments");
+      const rate = intent.fx_rate_used ?? null;
+      await createPlanForPayment(env, {
+        intentId: intent.id,
+        orderId,
+        paymentId,
+        email,
+        provider: event.provider,
+        currency: intent.currency,
+        feeListCents: price.devFee.listCents,
+        fxRateUsed: rate,
+        toMinor: (cents) => (rate ? Math.round(cents * rate) : Math.round(cents)),
+      });
+    }
+  } catch (err) {
+    console.error("Creating the installment plan failed:", err);
   }
 
   try {
@@ -313,6 +342,13 @@ export const payments = {
       return error(503, err instanceof Error ? err.message : "Currency conversion failed");
     }
 
+    const toMinor = (cents: number) =>
+      presentment.fxRateUsed ? Math.round(cents * presentment.fxRateUsed) : Math.round(cents);
+    const schedule =
+      devFeeMode === "installments"
+        ? installmentSchedule(price.devFee.listCents, toMinor)
+        : null;
+
     const intentId = `PI-${generateId()}`;
     const email = String(body?.email ?? quote.contact_email ?? "");
 
@@ -376,6 +412,7 @@ export const payments = {
             : null,
           discountApplied: discountAmountCents > 0,
           discountAmountCents,
+          installments: schedule ? { count: schedule.length, schedule } : null,
           payload: started.payload,
         },
       });

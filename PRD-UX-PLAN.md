@@ -314,6 +314,8 @@ workers/api/src/payments/resolve.ts  resolveProvider(country, currency)
 
 ## 11. Installments on the one-time development fee (PRD §4.6)
 
+**Status: implemented** — `workers/api/src/lib/installments.ts` plus migration `0007_installments.sql`. A plan is written when an installment purchase succeeds; the daily Cron Worker duns whatever is due. The one piece not built is the project-page widget showing "2 of 12 paid · next ₦… on 12 Oct", because that surface arrives with WP5.
+
 **Model:** the fee is a debt schedule, not a subscription.
 - `installment_plans(project_id, total_cents, currency, count, interval, started_at, status)`; `installments(id, plan_id, seq, due_at, amount_cents, status ∈ {Scheduled, Paid, Due, Grace, Failed}, attempts, paid_at)`.
 - **Decision 11 — twelve even monthly payments.** The one-time development fee splits into **12 equal monthly payments**; payment 1 is taken at checkout, the remaining 11 on monthly anniversaries. Splitting rule in integer cents: `base = floor(totalCents / 12)`, and the first `totalCents − 12 × base` payments get **+1 cent** so the twelve sum to the fee exactly.
@@ -483,7 +485,7 @@ Rules
 | **1** | WP1 landing (frontend only) | — | Low; constraints verified by md5 | ✅ **Landed — `9acc338`** (hero, panel text, 7 categories, tiers section, journey + "No tokens" band, CTA, footer/nav; both md5 fingerprints unchanged; `tsc` + `next build` clean) |
 | **2** | WP0 model + heuristic engine + WP2 services IA + WP8 | — | Low–medium (slug change) | ✅ **Landed — `7291e85`** (`src/lib/product.ts` + `PricingEngine` seam + heuristic; server mirror in `workers/api/src/lib/pricing.ts` with `scripts/check-pricing-mirror.mjs` drift guard; `/services` index, 7 detail pages, retired-slug page; "Request a Quote" retired. One open item: fee calibration, §17.1) |
 | **3** | WP3 quote/intake + uploads + enterprise form | WP0, WP2 | Medium | ✅ **Landed — `b6ea079`** (5-step `/quote` with the §4.3 metrics and tier recommendation, `POST /api/uploads` → R2, `POST /api/contact-sales` → admin@techrepubliq.com + ack, server-side quote pricing with clamped estimates, `/quote/result` deleted, `?category=`/`?tier=` wired. Client and server totals verified identical; routes exercised locally. R2 bucket provisioned) |
-| **4** | WP4 payments: provider interface, PayPal rail, FX fix, invoices, signature verification | WP3 | Medium (money path) | ✅ **Part 1 landed** — provider seam, three rails, FX cron + locked rate, verified webhooks, server-side recompute, checkout conversion (§10, §20). **Part 2 outstanding:** installments (§11) |
+| **4** | WP4 payments: provider interface, PayPal rail, FX fix, invoices, signature verification | WP3 | Medium (money path) | ✅ **Landed** — part 1: provider seam, three rails, FX cron + locked rate, verified webhooks, server-side recompute, checkout conversion (§10, §20). Part 2: installments (§11). **Still to do:** the project-page "2 of 12 paid" widget, which needs WP5's project surface |
 | **5** | WP5 dashboard + project tabs (Preview/Services/Database) | WP0, DB | Medium–high |
 | **6** | WP6 installments + reviews + post-launch edits | WP4, WP5 | Medium |
 | **7** | §12 Analytics (Cloudflare) + §13 Email Center + WP7 policy copy | WP5 | Medium (external APIs) |
@@ -498,7 +500,7 @@ PRs 1 and 2 are independent. None touches the OBJ or GIF-panel code.
 2. **Zone plan sign-off** (§12.5): confirm Free-by-default with Business as a per-project paid upgrade, and the offboarding clause for customer-owned registrars.
 3. **Does the upgrade nudge need a bandwidth half?** Requests/day is the metric; bandwidth is currently display-only.
 4. **`FROM_EMAIL` is an unset secret in local dev** — outbound mail no-ops with a logged error until it's set. Pre-existing, but it means the Contact Sales emails are untested against a real inbox.
-5. **Installments (§11) are the remaining half of PR 4** — the schema, the saved-method rows and `chargeSaved` are in place; the schedule (`installment_plans` / `installments`), the dunning cron and the checkout selector are not.
+5. **A real off-session charge has never run.** Every installment path is verified locally except the successful one — the sandbox has no network, so `chargeSaved` has only exercised its failure branch (grace window, reminders, default). Test with Stripe test keys before taking installments live.
 6. **New secrets to set before deploy:** `PAYSTACK_PUBLIC_KEY`, `STRIPE_PUBLISHABLE_KEY`, `STRIPE_WEBHOOK_SECRET`, `PAYPAL_CLIENT_ID`, `PAYPAL_CLIENT_SECRET`, `PAYPAL_WEBHOOK_ID`. `FX_API_URL` is already set in `wrangler.toml` to open.er-api.com (no key); swap it if you pick a provider with one.
 7. **Remote D1 migrations are unverified.** All four files (`0001`–`0004_contact_sales`) apply cleanly to a local database; nobody has confirmed whether they were ever applied to the production database `632bb22e…`. Check with `wrangler d1 migrations list techrepubliq --remote` before deploy.
 
@@ -576,6 +578,7 @@ Patching the tag alone would have left a config where `wrangler deploy` from the
 
 | Command | Does |
 | --- | --- |
+| `npm run api:setup` | installs worker deps and creates `.dev.vars` from `.dev.vars.example` (dummy test values) if it's missing — run this first in a fresh checkout |
 | `npm run api:dev` | `wrangler dev` — pass `--compatibility-date 2026-05-03`; local workerd is older than the committed `2026-08-01` and rejects it |
 | `npm run api:deploy` | deploys the Worker |
 | `npm run api:migrate` | `wrangler d1 migrations apply techrepubliq` — **remote**. Append `-- --local` to rehearse against a local copy |
@@ -585,3 +588,5 @@ Patching the tag alone would have left a config where `wrangler deploy` from the
 **Verified 2026-09-15:** four migrations apply to a local database, 14 commands, no errors — tables: `customers`, `orders`, `quotes`, `sessions`, `contact_sales_leads`, `discount_codes`, `migration_requests`. `node_modules` does not survive between sessions in this sandbox; run `npm ci` first.
 
 **R2:** bucket `techrepubliq-assets`, Standard class, private. Only `bucket_name` in the config has to match — the binding alias is ours, and the code uses `ASSETS`.
+
+**Local D1 is disposable.** `.wrangler/` is not persisted between sessions, so a fresh checkout needs `npm run api:setup`, `wrangler d1 migrations apply techrepubliq --local`, and a seeded `fx_rates` row — without one, NGN checkout returns 503 "Exchange rate unavailable". Crons never fire on their own locally: `curl "http://127.0.0.1:8787/cdn-cgi/handler/scheduled"` triggers one.
