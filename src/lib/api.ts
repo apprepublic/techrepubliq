@@ -328,6 +328,12 @@ export const api = {
         method: "POST",
         body: JSON.stringify({ serviceId }),
       }),
+    /** PRD §3.2 — the dashboard half of "Add additional add-on". */
+    addService: (id: string, addonId: string) =>
+      request<{ service: ServiceRow; restored: boolean }>(`/api/projects/${id}/services/add`, {
+        method: "POST",
+        body: JSON.stringify({ addonId }),
+      }),
     requestMigration: (id: string) =>
       request<{ sent: boolean; expiresAt: string }>(`/api/projects/${id}/migration`, {
         method: "POST",

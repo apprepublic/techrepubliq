@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 import { EditsTab } from "@/components/dashboard/EditsTab";
 import { AnalyticsTab } from "@/components/dashboard/AnalyticsTab";
 import { EmailTab } from "@/components/dashboard/EmailTab";
+import { ADDON_CATALOG } from "@/lib/product";
 
 type Tab = "preview" | "services" | "edits" | "analytics" | "database" | "email";
 
@@ -59,6 +60,8 @@ export default function ProjectPage() {
   const [otpSent, setOtpSent] = useState(false);
   const [otpCode, setOtpCode] = useState("");
   const [migrationNote, setMigrationNote] = useState("");
+  /** PRD §4.5 — cancelling a service needs a confirmation step, not one click. */
+  const [confirmingCancel, setConfirmingCancel] = useState<string | null>(null);
 
   useEffect(() => {
     setId(new URLSearchParams(window.location.search).get("id") ?? "");
@@ -92,9 +95,27 @@ export default function ProjectPage() {
     try {
       if (service.status === "Active") await api.projects.cancelService(detail.project.id, service.id);
       else await api.projects.restoreService(detail.project.id, service.id);
+      setConfirmingCancel(null);
       load();
     } catch {
       setError("Couldn't update that service.");
+    }
+    setBusy(false);
+  };
+
+  const addAddon = async (addonId: string) => {
+    if (!detail || !addonId) return;
+    setBusy(true);
+    setError("");
+    try {
+      await api.projects.addService(detail.project.id, addonId);
+      load();
+    } catch (err) {
+      setError(
+        err instanceof Error && err.message.includes("402")
+          ? "Add-on pricing on your tier is arranged through Contact Sales."
+          : "Couldn't add that add-on just now."
+      );
     }
     setBusy(false);
   };
@@ -154,6 +175,15 @@ export default function ProjectPage() {
   const { project, services, revisions, installments } = detail;
   const isMobile = project.category === "app-development";
   const hasEmail = services.some((s) => s.service_key === "email" && s.status === "Active");
+
+  // PRD §3.2 — the dropdown offers what isn't already on the project. Re-adding an
+  // existing one restores it, so a cancelled add-on is offered again rather than hidden.
+  const installedAddons = new Set(
+    services
+      .filter((s) => s.kind === "addon" && s.service_key && s.status === "Active")
+      .map((s) => s.service_key as string)
+  );
+  const availableAddons = ADDON_CATALOG.filter((a) => !installedAddons.has(a.id));
   const tabs = hasEmail ? [...TABS, EMAIL_TAB] : TABS;
 
   return (
@@ -303,7 +333,12 @@ export default function ProjectPage() {
                   <StatusBadge status={service.status as ProjectStatus} />
                   {service.kind === "addon" && (
                     <button
-                      onClick={() => toggleService(service)}
+                      onClick={() =>
+                        service.status === "Active"
+                          ? // PRD §4.5 — cancelling asks first; restoring is safe to do directly.
+                            setConfirmingCancel(service.id)
+                          : toggleService(service)
+                      }
                       disabled={busy}
                       className="text-xs text-accent hover:text-accent-hover underline disabled:opacity-50"
                     >
@@ -312,6 +347,36 @@ export default function ProjectPage() {
                   )}
                 </div>
               </div>
+
+              {/* PRD §4.5 — the confirmation prompt, before anything is cancelled. */}
+              {confirmingCancel === service.id && (
+                <div className="mt-sm p-sm border border-error rounded-sm">
+                  <p className="text-xs text-ink mb-sm">
+                    You&apos;re about to cancel {service.name} — it will no longer be available on
+                    your app.
+                    {service.renews_on
+                      ? ` It keeps running until ${formatDate(service.renews_on)}, and nothing changes until then.`
+                      : ""}
+                  </p>
+                  <div className="flex items-center gap-sm">
+                    <button
+                      onClick={() => toggleService(service)}
+                      disabled={busy}
+                      className="text-xs font-medium text-white bg-error hover:opacity-90 px-sm py-xs rounded-sm disabled:opacity-50"
+                    >
+                      Cancel this service
+                    </button>
+                    <button
+                      onClick={() => setConfirmingCancel(null)}
+                      disabled={busy}
+                      className="text-xs text-slate hover:text-ink underline disabled:opacity-50"
+                    >
+                      Keep it
+                    </button>
+                  </div>
+                </div>
+              )}
+
               {service.status === "Cancel at renewal" && (
                 <p className="text-xs text-slate mt-sm">
                   Runs until {formatDate(service.renews_on)}, then stops. Nothing changes until then.
@@ -325,15 +390,31 @@ export default function ProjectPage() {
             </div>
           ))}
 
+          {/* PRD §3.2 / §9.2 — the same "Add additional add-on" control the quote page
+              offers, still available once the project is live. */}
           <div className="border border-line rounded-sm p-md bg-paper">
-            <p className="text-sm text-slate">
-              Hosting, backend and monitoring are always included. Add-ons can be added when you
-              scope a project —{" "}
-              <Link href="/services" className="text-accent hover:text-accent-hover underline">
-                browse what&apos;s available
-              </Link>
-              .
+            <p className="text-sm text-slate mb-sm">
+              Hosting, backend and monitoring are always included. Anything else you switch on
+              here joins the project straight away and bills from your next renewal.
             </p>
+            <select
+              value=""
+              onChange={(e) => e.target.value && addAddon(e.target.value)}
+              disabled={busy || availableAddons.length === 0}
+              className="w-full max-w-[340px] border border-line rounded-sm bg-canvas px-sm py-xs text-sm text-ink disabled:opacity-50"
+              aria-label="Add additional add-on"
+            >
+              <option value="">
+                {availableAddons.length === 0
+                  ? "Every add-on is already on this project"
+                  : "Add additional add-on…"}
+              </option>
+              {availableAddons.map((addon) => (
+                <option key={addon.id} value={addon.id}>
+                  {addon.label} — {addon.example}
+                </option>
+              ))}
+            </select>
           </div>
 
           <div className="border border-line rounded-sm p-md">

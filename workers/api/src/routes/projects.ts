@@ -283,6 +283,76 @@ export const projects = {
     return json({ ok: true });
   },
 
+  /**
+   * Add an add-on to a live project — PRD §3.2, the dashboard half. The same catalog the
+   * quote page offers, available after purchase, which is what makes "Add additional
+   * add-on" a standing control rather than a one-time choice at checkout.
+   *
+   * Priced from the project's tier, because §4.3 is what makes a $25 add-on $5 on MVP.
+   * Enterprise resolves to no number, so it routes to Contact Sales instead.
+   */
+  addService: async (request: Request, env: Env) => {
+    const customerId = await requireCustomer(request, env);
+    if (!customerId) return error(401, "Sign in to manage your services");
+
+    const parts = new URL(request.url).pathname.split("/");
+    const projectId = parts[3] ?? "";
+    const project = await ownedProject(env, customerId, projectId);
+    if (!project) return error(404, "Project not found");
+
+    const body = (await request.json().catch(() => ({}))) as any;
+    const addonId = String(body?.addonId ?? "");
+    const addon = ADDON_CATALOG.find((a) => a.id === addonId);
+    if (!addon) return error(400, "Unknown add-on");
+
+    const cents = addonMonthlyCents((project.tier_id ?? "startup") as any, addonId);
+    if (cents === null) {
+      // Decision 14 — Enterprise never shows a figure. Send them to sales, don't invent one.
+      return error(402, "Add-on pricing for this tier is arranged through Contact Sales");
+    }
+
+    // Already on the project, in any state — including cancelled ones, so re-adding
+    // restores it rather than creating a duplicate row.
+    const existing = await env.DB.prepare(
+      "SELECT * FROM project_services WHERE project_id = ? AND service_key = ? AND kind = 'addon'"
+    )
+      .bind(project.id, addonId)
+      .first<any>();
+
+    if (existing) {
+      await env.DB.prepare(
+        "UPDATE project_services SET status = 'Active' WHERE id = ?"
+      )
+        .bind(existing.id)
+        .run();
+      return json({ service: { ...existing, status: "Active" }, restored: true });
+    }
+
+    const renewsOn = new Date(Date.now() + 30 * 86_400_000).toISOString().slice(0, 10);
+    const serviceId = `PS-${generateId()}`;
+
+    await env.DB.prepare(
+      `INSERT INTO project_services (id, project_id, name, service_key, kind, monthly_cents, status, renews_on)
+       VALUES (?, ?, ?, ?, 'addon', ?, 'Active', ?)`
+    )
+      .bind(serviceId, project.id, addon.label, addon.id, cents, renewsOn)
+      .run();
+
+    return json({
+      service: {
+        id: serviceId,
+        project_id: project.id,
+        name: addon.label,
+        service_key: addon.id,
+        kind: "addon",
+        monthly_cents: cents,
+        status: "Active",
+        renews_on: renewsOn,
+      },
+      restored: false,
+    });
+  },
+
   /** Go live. A project has to have been in preview first — there's no blind launch. */
   launch: async (request: Request, env: Env) => {
     const customerId = await requireCustomer(request, env);

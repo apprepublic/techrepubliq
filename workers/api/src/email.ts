@@ -36,25 +36,52 @@ function baseHtml(logo: string, body: string, title: string): string {
     </html>`;
 }
 
+/**
+ * PRD §1.7 sends an **unpaid** invoice the moment the customer proceeds to payment;
+ * §1.8 sends the **paid** one once it clears. Same document, two states — the customer
+ * should never have to guess which one they're looking at, so the state is in the
+ * subject line and in a status row, not just implied.
+ */
 export async function sendInvoiceEmail(
   env: Env,
   to: string,
-  order: { referenceId: string; serviceTitle: string; amount: number; currency: string }
+  order: {
+    referenceId: string;
+    serviceTitle: string;
+    amount: number;
+    currency: string;
+    /** Defaults to paid — the original behaviour, so existing call sites stay correct. */
+    paid?: boolean;
+  }
 ) {
+  const paid = order.paid ?? true;
+  const subject = paid
+    ? `Invoice — ${order.referenceId}`
+    : `Unpaid invoice — ${order.referenceId}`;
+
+  const lead = paid
+    ? "<p>Thank you for your order. Here's your invoice.</p>"
+    : "<p>Your project is scoped and the build is queued behind payment. Here is your unpaid invoice — we'll email a paid copy the moment it clears.</p>";
+
+  const statusRow = paid
+    ? ""
+    : `<tr><td style="color:#5B6472;font-size:14px;padding:8px 0">Status</td><td style="color:#C8102E;font-size:14px;font-weight:500;text-align:right;padding:8px 0">Unpaid</td></tr>`;
+
   try {
     await env.SEND_EMAIL.send({
       from: { name: "TechRepubliQ", email: env.FROM_EMAIL },
       to: [{ name: "Customer", email: to }],
-      subject: `Invoice — ${order.referenceId}`,
+      subject,
       html: baseHtml(LOGO_URL, `
-        <p>Thank you for your order. Here's your invoice.</p>
+        ${lead}
         <table style="width:100%;border-collapse:collapse;margin:16px 0">
           <tr><td style="color:#5B6472;font-size:14px;padding:8px 0">Reference</td><td style="font-family:'JetBrains Mono',monospace;color:#12151C;font-size:14px;text-align:right;padding:8px 0">${order.referenceId}</td></tr>
+          ${statusRow}
           <tr><td style="color:#5B6472;font-size:14px;padding:8px 0">Service</td><td style="color:#12151C;font-size:14px;text-align:right;padding:8px 0">${order.serviceTitle}</td></tr>
           <tr style="border-top:1px solid #DFDBD3"><td style="color:#12151C;font-size:16px;font-weight:500;padding:12px 0">Total</td><td style="font-family:'JetBrains Mono',monospace;color:#12151C;font-size:16px;font-weight:500;text-align:right;padding:12px 0">${order.currency} ${order.amount.toLocaleString()}</td></tr>
         </table>
         <p>Your invoice is also available in your <a href="${BASE_URL}/dashboard">dashboard</a>.</p>
-      `, "Invoice"),
+      `, paid ? "Invoice" : "Invoice — awaiting payment"),
     });
   } catch (err) {
     console.error("Failed to send invoice email:", err);

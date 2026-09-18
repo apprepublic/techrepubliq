@@ -76,6 +76,7 @@ router.get("/api/projects/:id/database", projects.database);
 router.post("/api/projects/:id/launch", projects.launch);
 router.post("/api/projects/:id/services/cancel", projects.cancelService);
 router.post("/api/projects/:id/services/restore", projects.restoreService);
+router.post("/api/projects/:id/services/add", projects.addService);
 router.post("/api/projects/:id/migration", projects.requestMigration);
 router.post("/api/projects/:id/migration/confirm", projects.confirmMigration);
 router.get("/api/service-center", projects.serviceCenter);

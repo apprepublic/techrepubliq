@@ -441,6 +441,25 @@ export const payments = {
         .bind(started.reference, intentId)
         .run();
 
+      // PRD §1.7 — proceeding to payment emails an unpaid invoice straight away; there is
+      // no "Generate Invoice" step. §1.8's paid copy goes out from onPaymentSucceeded.
+      // The rail is already started, so this fires once and only on a real attempt.
+      if (email) {
+        try {
+          env.ctx.waitUntil(
+            sendInvoiceEmail(env, email, {
+              referenceId: intentId,
+              serviceTitle: quote.service_title ?? "TechRepubliQ project",
+              amount: presentment.amountMinor / 100,
+              currency: presentment.currency,
+              paid: false,
+            })
+          );
+        } catch (err) {
+          console.error("Unpaid invoice email failed:", err);
+        }
+      }
+
       return json({
         intent: {
           id: intentId,
