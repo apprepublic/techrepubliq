@@ -24,24 +24,44 @@ const clauses = [
     body: "You own the front-end code and content of your product. Ownership transfers to you upon full payment and delivery of the completed product as described in your quote.",
   },
   {
+    id: "hosting-and-backend",
+    heading: "5. Hosting and Backend",
+    body: "Hosting, backend services, and monitoring are provided by TechRepubliQ for the lifetime of your project and are not transferable. If you move your front-end code elsewhere, the hosted environment, backend, and database remain with us and the hosted product will no longer function. This is what your recurring Project Services cover.",
+  },
+  {
     id: "migration-rights",
-    heading: "5. Migration Rights",
-    body: "You may request migration files (front-end code plus applicable back-end migration files) at any time from your dashboard. Migration excludes proprietary AI automation components, which remain our property and are not portable. Migration files will be provided within a reasonable timeframe.",
+    heading: "6. Migration Rights",
+    body: "You may request migration files at any time from your dashboard. What you receive is the front-end bundle — the interface, assets, and client-side code — delivered as an archive, not as a repository. We do not hand over a GitHub organisation, a commit history, or access to any source-control account. Migration excludes proprietary AI automation components, which remain our property and are not portable. Migration files are provided within a reasonable timeframe.",
+  },
+  {
+    id: "owner-only-actions",
+    heading: "7. Owner-Only Actions",
+    body: "Requesting a migration or cancelling a service is restricted to the verified owner of the project and is confirmed by a one-time code sent to the email address on the account. This protects your project from being moved or cancelled by anyone else with access to a browser session.",
   },
   {
     id: "domain-handling",
-    heading: "6. Domain Handling",
+    heading: "8. Domain Handling",
     body: "We will transfer the domain to a registrar or account you specify on request. The prior registration and hosting details remain confidential and will not be disclosed.",
   },
   {
     id: "no-account-access",
-    heading: "7. No Account-Level Access",
+    heading: "9. No Account-Level Access",
     body: "You are not entitled to receipts, credentials, or account access for third-party services purchased on your behalf as part of a bundled service. These accounts are managed by us as part of the delivery infrastructure.",
   },
   {
     id: "payment-terms",
-    heading: "8. Payment Terms",
-    body: "Discount codes, when applicable, must be applied at checkout. Pricing is localized by geographic location and is non-transferable between regions. Refunds are processed in accordance with our refund policy, which is available on request.",
+    heading: "10. Payment Terms",
+    body: "Pricing is localized by geographic location and is non-transferable between regions. Where a development fee is split into monthly installments, the installments are a commitment to pay the full fee, not a subscription you can stop part-way through.",
+  },
+  {
+    id: "no-refunds",
+    heading: "11. No Refunds",
+    body: "All payments are final. We do not offer refunds, in full or in part, once a payment has been made — including for the one-time development fee, installments already charged, recurring Project Services, add-ons, or review packs. Work begins against your project as soon as an order is placed, which is why there is no cooling-off period. If something we delivered doesn't work as described in your accepted quote, we will fix it at no additional cost.",
+  },
+  {
+    id: "grace-period",
+    heading: "12. Grace Period and Service Removal",
+    body: "If a recurring payment fails, service continues for a grace period of seven days while we retry the card on file and email reminders. If the balance is still unpaid when the grace period ends, the add-on services attached to the project are removed. Your project itself, and everything already built and delivered, is never deleted for non-payment.",
   },
 ];
 
@@ -113,7 +133,7 @@ export default function TermsPage() {
             Terms of Service / Service Agreement
           </h1>
           <p className="text-sm text-slate mb-xl">
-            Last updated: January 2026. This agreement governs all services
+            Last updated: September 2026. This agreement governs all services
             provided by TechRepubliQ.
           </p>
 

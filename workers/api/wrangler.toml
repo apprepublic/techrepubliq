@@ -3,10 +3,24 @@ main = "src/index.ts"
 compatibility_date = "2026-08-01"
 compatibility_flags = ["nodejs_compat"]
 
+# Daily FX refresh — 06:00 UTC (decision 10). Installment dunning (§11) will join it.
+[triggers]
+crons = ["0 6 * * *"]
+
+# USD→NGN source. Defaults to open.er-api.com inside the code if left unset.
+[vars]
+FX_API_URL = "https://open.er-api.com/v6/latest/USD"
+
 [[d1_databases]]
 binding = "DB"
 database_name = "techrepubliq"
 database_id = "632bb22e-8195-41bd-a817-4b449edba557"
+migrations_dir = "migrations"
+
+# Intake assets (logos, briefs, sample data) uploaded from the quote flow.
+[[r2_buckets]]
+binding = "ASSETS"
+bucket_name = "techrepubliq-assets"
 
 [[send_email]]
 name = "SEND_EMAIL"

@@ -4,6 +4,13 @@ import { useState, useEffect } from "react";
 import { motion } from "motion/react";
 import { Button } from "@/components/Button";
 import { services } from "@/lib/utils";
+import { api } from "@/lib/api";
+import {
+  formatMoney,
+  fxLine,
+  PROVIDER_LABEL,
+  type PaymentIntent,
+} from "@/lib/payments/provider";
 import { useRouter } from "next/navigation";
 
 declare global {
@@ -12,28 +19,35 @@ declare global {
   }
 }
 
-const PAYSTACK_PUBLIC_KEY = "pk_live_af6dd65a2044289cce39d4a5b910d490c41037e5";
-
 export default function CheckoutPage() {
   const router = useRouter();
   const [agreed, setAgreed] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [scriptLoaded, setScriptLoaded] = useState(false);
-  const [params, setParams] = useState({ ref: "", amount: 0, amountCents: 0, category: "", discountCode: "" });
+  const [params, setParams] = useState({
+    ref: "",
+    category: "",
+    discountCode: "",
+    cadence: "annual",
+    devFeeMode: "once",
+  });
+  const [email, setEmail] = useState("");
+  const [emailError, setEmailError] = useState("");
+  const [intent, setIntent] = useState<PaymentIntent | null>(null);
+  const [intentError, setIntentError] = useState("");
 
   useEffect(() => {
     const sp = new URLSearchParams(window.location.search);
-    const amt = Number(sp.get("amount") ?? "0");
     setParams({
       ref: sp.get("ref") ?? "",
-      amount: amt,
-      amountCents: amt * 100,
       category: sp.get("category") ?? "",
       discountCode: sp.get("discount") ?? "",
+      cadence: sp.get("cadence") === "monthly" ? "monthly" : "annual",
+      devFeeMode: sp.get("devFeeMode") === "installments" ? "installments" : "once",
     });
+    setEmail(sessionStorage.getItem("customer_email") ?? "");
 
-    // Load Paystack inline script
     if (!document.querySelector('script[src="https://js.paystack.co/v1/inline.js"]')) {
       const script = document.createElement("script");
       script.src = "https://js.paystack.co/v1/inline.js";
@@ -44,27 +58,104 @@ export default function CheckoutPage() {
     }
   }, []);
 
-  const service = services.find((s) => s.slug === params.category);
+  // The total comes from the server, recomputed from the stored quote. The browser never
+  // works out money, and the rate shown is the one locked onto the intent.
+  const emailIsValid = /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email.trim());
 
+  useEffect(() => {
+    if (!params.ref || !emailIsValid) {
+      setIntent(null);
+      setIntentError("");
+      return;
+    }
+    let cancelled = false;
+    setIntent(null);
+    setIntentError("");
+
+    api.payments
+      .createIntent({
+        quoteRef: params.ref,
+        email: email.trim(),
+        cadence: params.cadence === "monthly" ? "monthly" : "annual",
+        devFeeMode: params.devFeeMode === "installments" ? "installments" : "once",
+        discountCode: params.discountCode || undefined,
+      })
+      .then((res) => {
+        if (cancelled) return;
+        if ("intent" in res) setIntent(res.intent);
+        else setIntentError(res.error ?? "Could not price this quote");
+      })
+      .catch(() => {
+        if (!cancelled) setIntentError("Could not reach the payment service");
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [params.ref, params.discountCode, params.cadence, params.devFeeMode, email, emailIsValid]);
+
+  const service = services.find((s) => s.slug === params.category);
+  const total = intent ? formatMoney(intent.amountMinor, intent.currency) : "—";
+  const rate = intent ? fxLine(intent.fx, intent.currency) : null;
   const handlePay = async () => {
+    if (!emailIsValid) {
+      setEmailError("Enter a valid email address so we can send your invoice.");
+      return;
+    }
+    if (!intent) return;
+    sessionStorage.setItem("customer_email", email.trim());
     setLoading(true);
     setError("");
 
-    // Always use Paystack live key
-    const email = sessionStorage.getItem("customer_email") || "customer@example.com";
-    const customerName = sessionStorage.getItem("customer_name") || "Customer";
+    const payload = intent.payload;
+
+    // Stripe and PayPal are hosted: the browser just follows the URL.
+    if (payload.kind === "stripe") {
+      if (!payload.url) {
+        setError("Could not open the card payment page. Please try again.");
+        setLoading(false);
+        return;
+      }
+      window.location.href = payload.url;
+      return;
+    }
+    if (payload.kind === "paypal") {
+      if (!payload.approvalUrl) {
+        setError("Could not open PayPal. Please try again.");
+        setLoading(false);
+        return;
+      }
+      window.location.href = payload.approvalUrl;
+      return;
+    }
+
+    // Paystack Inline — the key, amount and reference all come from the intent.
+    if (!scriptLoaded || !window.PaystackPop) {
+      setError("Payment window is still loading. Please try again in a moment.");
+      setLoading(false);
+      return;
+    }
 
     try {
       const handler = window.PaystackPop.setup({
-        key: PAYSTACK_PUBLIC_KEY,
-        email,
-        amount: params.amountCents,
-        currency: "NGN",
-        ref: params.ref || `QR-${Date.now()}`,
+        key: payload.publicKey,
+        email: payload.email || sessionStorage.getItem("customer_email") || "customer@example.com",
+        amount: payload.amountKobo,
+        currency: intent.currency,
+        ref: payload.reference,
+        accessCode: payload.accessCode ?? undefined,
         metadata: {
           custom_fields: [
-            { display_name: "Customer Name", variable_name: "customer_name", value: customerName },
-            { display_name: "Service", variable_name: "service", value: service?.title || "Custom project" },
+            {
+              display_name: "Customer Name",
+              variable_name: "customer_name",
+              value: sessionStorage.getItem("customer_name") || "Customer",
+            },
+            {
+              display_name: "Service",
+              variable_name: "service",
+              value: service?.title || "Custom project",
+            },
           ],
         },
         callback: () => {
@@ -76,7 +167,7 @@ export default function CheckoutPage() {
         },
       });
       handler.openIframe();
-    } catch (e) {
+    } catch {
       setError("Could not load Paystack. Please try again.");
       setLoading(false);
     }
@@ -99,16 +190,16 @@ export default function CheckoutPage() {
                 <span className="text-slate">Quote ref</span>
                 <span className="font-mono text-ink">{params.ref}</span>
               </div>
-              {params.discountCode && (
-                <div className="flex justify-between">
-                  <span className="text-slate">Discount</span>
-                  <span className="font-mono text-success">{params.discountCode}</span>
-                </div>
-              )}
               <div className="border-t border-line pt-sm flex justify-between font-medium">
                 <span className="text-ink">Total</span>
-                <span className="font-mono text-ink text-lg">₦{(params.amount * 1500).toLocaleString()}</span>
+                <span className="font-mono text-ink text-lg">{total}</span>
               </div>
+              {rate && <p className="text-xs text-slate pt-xs">{rate}</p>}
+              {intent?.fx?.stale && (
+                <p className="text-xs text-warning pt-xs">
+                  This rate may be out of date — we&apos;ll confirm the final amount before charging.
+                </p>
+              )}
             </div>
           </div>
         </div>
@@ -117,28 +208,86 @@ export default function CheckoutPage() {
           <div className="border border-line rounded-sm p-lg">
             <h2 className="text-md font-display font-semibold text-ink mb-md">Payment</h2>
 
-            <p className="text-xs text-slate mb-md">Pay securely with Paystack (NGN)</p>
+            <div className="mb-lg">
+              <label htmlFor="checkout-email" className="text-sm font-medium text-ink mb-sm block">
+                Email for your invoice <span className="text-error">*</span>
+              </label>
+              <input
+                id="checkout-email"
+                type="email"
+                value={email}
+                onChange={(e) => {
+                  setEmail(e.target.value);
+                  setEmailError("");
+                }}
+                autoComplete="email"
+                required
+                placeholder="you@example.com"
+                className={`w-full border rounded-sm px-md py-sm text-sm font-body text-ink bg-paper focus:border-accent outline-none transition-colors duration-150 ${emailError ? "border-error" : "border-line"}`}
+                aria-invalid={!!emailError}
+                aria-describedby={emailError ? "checkout-email-error" : undefined}
+              />
+              {emailError && (
+                <p id="checkout-email-error" className="text-xs text-error mt-xs">
+                  {emailError}
+                </p>
+              )}
+              <p className="text-xs text-slate mt-xs">
+                We&apos;ll send the unpaid invoice now and a paid copy when your payment clears.
+              </p>
+            </div>
+
+            <p className="text-xs text-slate mb-md">
+              {intent
+                ? `Pay securely with ${PROVIDER_LABEL[intent.provider]} (${intent.currency})`
+                : "Preparing your payment…"}
+            </p>
 
             <div className="border border-line rounded-sm p-md mb-lg text-sm text-slate bg-paper">
-              <p className="text-ink font-medium mb-sm">Paystack checkout</p>
-              <p>You will be redirected to Paystack&apos;s secure payment page to complete your transaction using your preferred payment method (card, bank transfer, USSD, or QR).</p>
+              <p className="text-ink font-medium mb-sm">
+                {intent?.installments ? "Twelve payments, no refunds" : "No refunds"}
+              </p>
+              <p>
+                {intent?.installments
+                  ? "Spreading the fee is a commitment to pay all twelve payments. Service continues during a 7-day grace window if one fails, but cancelling isn't an option once you've started."
+                  : "Every project is scoped and priced before work starts, and payment is a commitment to the full amount."}{" "}
+                See the{" "}
+                <a href="/terms" target="_blank" className="text-accent hover:text-accent-hover underline">
+                  Service Agreement
+                </a>{" "}
+                for the details.
+              </p>
             </div>
 
             <label className="flex items-start gap-sm text-sm text-slate mb-lg cursor-pointer">
               <input type="checkbox" checked={agreed} onChange={(e) => setAgreed(e.target.checked)} className="mt-1 accent-accent" />
-              <span>I agree to the{" "}<a href="/terms" target="_blank" className="text-accent hover:text-accent-hover underline">Service Agreement</a></span>
+              <span>
+                I agree to the{" "}
+                <a href="/terms" target="_blank" className="text-accent hover:text-accent-hover underline">
+                  Service Agreement
+                </a>
+              </span>
             </label>
 
-            {error && (
-              <motion.div initial={{ y: -10, opacity: 0 }} animate={{ y: 0, opacity: 1 }}
-                transition={{ duration: 0.22, ease: [0.2, 0.8, 0.2, 1] }} role="alert"
-                className="bg-error/10 border border-error rounded-sm p-md text-sm text-error mb-md">
-                {error}
+            {(error || intentError) && (
+              <motion.div
+                initial={{ y: -10, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                transition={{ duration: 0.22, ease: [0.2, 0.8, 0.2, 1] }}
+                role="alert"
+                className="bg-error/10 border border-error rounded-sm p-md text-sm text-error mb-md"
+              >
+                {error || intentError}
               </motion.div>
             )}
 
-            <Button className="w-full" disabled={!agreed} loading={loading} onClick={handlePay}>
-              Pay ₦{(params.amount * 1500).toLocaleString()}
+            <Button
+              className="w-full"
+              disabled={!agreed || !intent || loading}
+              loading={loading || (!!params.ref && emailIsValid && !intent && !intentError)}
+              onClick={handlePay}
+            >
+              {intent ? `Pay ${total}` : "Preparing…"}
             </Button>
           </div>
         </div>

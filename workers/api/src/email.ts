@@ -36,28 +36,164 @@ function baseHtml(logo: string, body: string, title: string): string {
     </html>`;
 }
 
+/**
+ * PRD §1.7 sends an **unpaid** invoice the moment the customer proceeds to payment;
+ * §1.8 sends the **paid** one once it clears. Same document, two states — the customer
+ * should never have to guess which one they're looking at, so the state is in the
+ * subject line and in a status row, not just implied.
+ */
 export async function sendInvoiceEmail(
   env: Env,
   to: string,
-  order: { referenceId: string; serviceTitle: string; amount: number; currency: string }
+  order: {
+    referenceId: string;
+    serviceTitle: string;
+    amount: number;
+    currency: string;
+    /** Defaults to paid — the original behaviour, so existing call sites stay correct. */
+    paid?: boolean;
+  }
+) {
+  const paid = order.paid ?? true;
+  const subject = paid
+    ? `Invoice — ${order.referenceId}`
+    : `Unpaid invoice — ${order.referenceId}`;
+
+  const lead = paid
+    ? "<p>Thank you for your order. Here's your invoice.</p>"
+    : "<p>Your project is scoped and the build is queued behind payment. Here is your unpaid invoice — we'll email a paid copy the moment it clears.</p>";
+
+  const statusRow = paid
+    ? ""
+    : `<tr><td style="color:#5B6472;font-size:14px;padding:8px 0">Status</td><td style="color:#C8102E;font-size:14px;font-weight:500;text-align:right;padding:8px 0">Unpaid</td></tr>`;
+
+  try {
+    await env.SEND_EMAIL.send({
+      from: { name: "TechRepubliQ", email: env.FROM_EMAIL },
+      to: [{ name: "Customer", email: to }],
+      subject,
+      html: baseHtml(LOGO_URL, `
+        ${lead}
+        <table style="width:100%;border-collapse:collapse;margin:16px 0">
+          <tr><td style="color:#5B6472;font-size:14px;padding:8px 0">Reference</td><td style="font-family:'JetBrains Mono',monospace;color:#12151C;font-size:14px;text-align:right;padding:8px 0">${order.referenceId}</td></tr>
+          ${statusRow}
+          <tr><td style="color:#5B6472;font-size:14px;padding:8px 0">Service</td><td style="color:#12151C;font-size:14px;text-align:right;padding:8px 0">${order.serviceTitle}</td></tr>
+          <tr style="border-top:1px solid #DFDBD3"><td style="color:#12151C;font-size:16px;font-weight:500;padding:12px 0">Total</td><td style="font-family:'JetBrains Mono',monospace;color:#12151C;font-size:16px;font-weight:500;text-align:right;padding:12px 0">${order.currency} ${order.amount.toLocaleString()}</td></tr>
+        </table>
+        <p>Your invoice is also available in your <a href="${BASE_URL}/dashboard">dashboard</a>.</p>
+      `, paid ? "Invoice" : "Invoice — awaiting payment"),
+    });
+  } catch (err) {
+    console.error("Failed to send invoice email:", err);
+  }
+}
+
+/**
+ * Internal alert to the admin inbox — used when something money-adjacent stops working
+ * (a stale FX rate, a failed provider call). Never sent to a customer.
+ */
+export async function sendAlertEmail(env: Env, subject: string, bodyHtml: string) {
+  const to = env.ADMIN_EMAIL || "admin@techrepubliq.com";
+  try {
+    await env.SEND_EMAIL.send({
+      from: { name: "TechRepubliQ Alerts", email: env.FROM_EMAIL },
+      to: [{ name: "Admin", email: to }],
+      subject: `[TechRepubliQ] ${subject}`,
+      html: baseHtml(LOGO_URL, bodyHtml, subject),
+    });
+  } catch (err) {
+    console.error("Failed to send alert email:", err);
+  }
+}
+
+function money(amountMinor: number, currency: string): string {
+  return `${currency} ${(amountMinor / 100).toLocaleString()}`;
+}
+
+/** One-time code for owner-only actions — cancellation and migration (§6). */
+export async function sendOtpEmail(env: Env, to: string, code: string, projectName: string) {
+  try {
+    await env.SEND_EMAIL.send({
+      from: { name: "TechRepubliQ", email: env.FROM_EMAIL },
+      to: [{ name: "Customer", email: to }],
+      subject: "Your verification code",
+      html: baseHtml(LOGO_URL, `
+        <p>Your code for <strong>${projectName}</strong> is:</p>
+        <p style="font-family:'JetBrains Mono',monospace;font-size:28px;letter-spacing:6px;color:#12151C;margin:24px 0">${code}</p>
+        <p>It expires in 15 minutes. If you didn't ask for it, you can ignore this email — nothing has changed on your project.</p>
+      `, "Verification code"),
+    });
+  } catch (err) {
+    console.error("Failed to send OTP email:", err);
+  }
+}
+
+/**
+ * A nudge while an installment is in its 7-day grace window. Plain about what happens
+ * next — no threats, no vagueness (PRD §4.5).
+ */
+export async function sendInstallmentReminderEmail(
+  env: Env,
+  to: string,
+  installment: {
+    planId: string;
+    seq: number;
+    amountMinor: number;
+    currency: string;
+    daysPastDue: number;
+    graceUntil: string;
+  }
 ) {
   try {
     await env.SEND_EMAIL.send({
       from: { name: "TechRepubliQ", email: env.FROM_EMAIL },
       to: [{ name: "Customer", email: to }],
-      subject: `Invoice — ${order.referenceId}`,
+      subject: `Payment ${installment.seq} of 12 is overdue`,
       html: baseHtml(LOGO_URL, `
-        <p>Thank you for your order. Here's your invoice.</p>
-        <table style="width:100%;border-collapse:collapse;margin:16px 0">
-          <tr><td style="color:#5B6472;font-size:14px;padding:8px 0">Reference</td><td style="font-family:'JetBrains Mono',monospace;color:#12151C;font-size:14px;text-align:right;padding:8px 0">${order.referenceId}</td></tr>
-          <tr><td style="color:#5B6472;font-size:14px;padding:8px 0">Service</td><td style="color:#12151C;font-size:14px;text-align:right;padding:8px 0">${order.serviceTitle}</td></tr>
-          <tr style="border-top:1px solid #DFDBD3"><td style="color:#12151C;font-size:16px;font-weight:500;padding:12px 0">Total</td><td style="font-family:'JetBrains Mono',monospace;color:#12151C;font-size:16px;font-weight:500;text-align:right;padding:12px 0">${order.currency} ${order.amount.toLocaleString()}</td></tr>
-        </table>
-        <p>Your invoice is also available in your <a href="${BASE_URL}/dashboard">dashboard</a>.</p>
-      `, "Invoice"),
+        <p>Payment ${installment.seq} of 12 on your development fee — ${money(installment.amountMinor, installment.currency)} — is ${installment.daysPastDue} day${installment.daysPastDue === 1 ? "" : "s"} overdue.</p>
+        <p>We'll retry the card we have on file automatically. Service continues during the grace period, which ends on ${installment.graceUntil}.</p>
+        <p>If that date passes unpaid, the add-on services on your project are removed. The project itself and everything already built stays yours.</p>
+        <p>Plan reference: <span style="font-family:'JetBrains Mono',monospace">${installment.planId}</span></p>
+        <p><a href="${BASE_URL}/dashboard">Review your plan in the dashboard</a></p>
+      `, "Payment overdue"),
     });
   } catch (err) {
-    console.error("Failed to send invoice email:", err);
+    console.error("Failed to send installment reminder:", err);
+  }
+}
+
+/** The grace window closed — tell the customer, and copy the admin. */
+export async function sendInstallmentFailedEmail(
+  env: Env,
+  to: string,
+  installment: { planId: string; seq: number; amountMinor: number; currency: string }
+) {
+  const body = `
+    <p>The grace period on payment ${installment.seq} of 12 (${money(installment.amountMinor, installment.currency)}) has ended without payment.</p>
+    <p>The add-on services attached to this project have been removed. Your project and the work already delivered are untouched, and we'll be in touch about settling the balance.</p>
+    <p>Plan reference: <span style="font-family:'JetBrains Mono',monospace">${installment.planId}</span></p>
+  `;
+  try {
+    await env.SEND_EMAIL.send({
+      from: { name: "TechRepubliQ", email: env.FROM_EMAIL },
+      to: [{ name: "Customer", email: to }],
+      subject: `Grace period ended on payment ${installment.seq} of 12`,
+      html: baseHtml(LOGO_URL, body, "Grace period ended"),
+    });
+  } catch (err) {
+    console.error("Failed to send installment failed email:", err);
+  }
+
+  const admin = env.ADMIN_EMAIL || "admin@techrepubliq.com";
+  try {
+    await env.SEND_EMAIL.send({
+      from: { name: "TechRepubliQ Alerts", email: env.FROM_EMAIL },
+      to: [{ name: "Admin", email: admin }],
+      subject: `Installment defaulted — ${installment.planId} #${installment.seq}`,
+      html: baseHtml(LOGO_URL, `<p>An installment passed its grace period and was defaulted.</p>${body}`, "Installment defaulted"),
+    });
+  } catch (err) {
+    console.error("Failed to send default alert:", err);
   }
 }
 
@@ -108,5 +244,135 @@ export async function sendWelcomeEmail(
   } catch (err: any) {
     console.error("Failed to send welcome email:", err);
     return { ok: false };
+  }
+}
+interface LeadDetails {
+  name: string;
+  email: string;
+  company?: string;
+  businessStage?: string;
+  expectedScale?: string;
+  category?: string;
+  tierId?: string;
+  notes?: string;
+  source?: string;
+}
+
+function leadRow(label: string, value?: string): string {
+  if (!value) return "";
+  return `<tr><td style="color:#5B6472;font-size:14px;padding:6px 16px 6px 0;vertical-align:top">${label}</td>` +
+    `<td style="color:#12151C;font-size:14px;padding:6px 0;vertical-align:top">${value}</td></tr>`;
+}
+
+/** Decision 14 — the full form submission, straight to admin@techrepubliq.com. */
+export async function sendContactSalesEmail(
+  env: Env,
+  to: string,
+  lead: LeadDetails
+) {
+  const rows = [
+    leadRow("Name", lead.name),
+    leadRow("Email", lead.email),
+    leadRow("Company", lead.company),
+    leadRow("Stage", lead.businessStage),
+    leadRow("Expected scale", lead.expectedScale),
+    leadRow("Category", lead.category),
+    leadRow("Tier", lead.tierId),
+    leadRow("Notes", lead.notes),
+    leadRow("Source", lead.source),
+  ].join("");
+
+  try {
+    await env.SEND_EMAIL.send({
+      from: { name: "TechRepubliQ", email: env.FROM_EMAIL },
+      to: [{ name: "TechRepubliQ Sales", email: to }],
+      subject: `Enterprise enquiry — ${lead.name}${lead.company ? ` (${lead.company})` : ""}`,
+      html: baseHtml(
+        LOGO_URL,
+        `<p>A new Enterprise enquiry came in through the site.</p>
+         <table style="border-collapse:collapse;margin:16px 0">${rows}</table>
+         <p>Reply to the customer directly at <a href="mailto:${lead.email}">${lead.email}</a>.</p>`,
+        "Enterprise enquiry"
+      ),
+    });
+  } catch (err) {
+    console.error("Failed to send contact-sales email:", err);
+  }
+}
+
+/** Short acknowledgement so the customer knows it landed. No pricing, no commitments. */
+export async function sendContactSalesAck(env: Env, to: string, name: string) {
+  try {
+    await env.SEND_EMAIL.send({
+      from: { name: "TechRepubliQ", email: env.FROM_EMAIL },
+      to: [{ name, email: to }],
+      subject: "We got your Enterprise enquiry",
+      html: baseHtml(
+        LOGO_URL,
+        `<p>Hi ${name},</p>
+         <p>Thanks for getting in touch about an Enterprise project. We have your details and someone from the team will reply within one business day to scope it with you.</p>
+         <p>Enterprise work is quoted by conversation rather than by the online estimator, so there's nothing you need to do next.</p>`,
+        "We'll be in touch"
+      ),
+    });
+  } catch (err) {
+    console.error("Failed to send contact-sales acknowledgement:", err);
+  }
+}
+
+/**
+ * Decision 15 — the upgrade nudge. Suggestion only: nothing is throttled, suspended or
+ * removed, and the email says so, because a customer who reads "you're at 90% of your
+ * tier" will otherwise assume the site is about to break.
+ *
+ * Returns whether it was actually handed to the mail provider, so the caller knows
+ * whether to record that it was sent.
+ */
+export async function sendUpgradeNudgeEmail(
+  env: Env,
+  input: {
+    to: string;
+    name: string;
+    projectName: string;
+    projectId: string;
+    tierId: string;
+    averagePerDay: number;
+    ceiling: number;
+    level: "warn" | "breach";
+  }
+): Promise<boolean> {
+  const over = input.level === "breach";
+  const subject = over
+    ? `${input.projectName} is handling more traffic than its tier is sized for`
+    : `${input.projectName} is approaching its tier's traffic ceiling`;
+
+  const body = `
+    <p>Over the last seven days, <strong>${input.projectName}</strong> averaged
+      ${input.averagePerDay.toLocaleString()} requests a day. Its ${input.tierId} tier is sized for
+      ${input.ceiling.toLocaleString()} requests a day.</p>
+    <p>${
+      over
+        ? "You're consistently above that figure now."
+        : "That's close enough that it's worth talking about before it becomes a problem."
+    }</p>
+    <p><strong>Nothing is being throttled, slowed, or turned off.</strong> Your site keeps serving
+      every request. This is a suggestion, not a warning — the ceilings exist so we can tell you
+      when a bigger tier would give you more headroom, not so we can switch anything off.</p>
+    <p>Moving up takes effect immediately and is prorated. Tiers are never downgraded, so a quiet
+      month won't move you back.</p>
+    <p><a href="${BASE_URL}/dashboard/project?id=${input.projectId}">See the numbers and upgrade</a></p>
+  `;
+
+  try {
+    await env.SEND_EMAIL.send({
+      from: { name: "TechRepubliQ", email: env.FROM_EMAIL },
+      to: [{ name: input.name, email: input.to }],
+      subject,
+      html: baseHtml(LOGO_URL, body, over ? "More headroom available" : "Approaching your tier's ceiling"),
+    });
+    return true;
+  } catch (err) {
+    console.error("Failed to send upgrade nudge:", err);
+    return false;
   }
 }

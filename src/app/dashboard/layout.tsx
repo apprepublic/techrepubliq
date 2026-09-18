@@ -7,8 +7,11 @@ import { cn } from "@/lib/utils";
 import { api } from "@/lib/api";
 
 const sidebarLinks = [
-  { label: "Orders", href: "/dashboard" },
+  { label: "Projects", href: "/dashboard" },
+  { label: "Subscriptions", href: "/dashboard/subscriptions" },
+  { label: "Service Center", href: "/dashboard/support" },
   { label: "Account", href: "/dashboard/settings" },
+  { label: "Past orders", href: "/dashboard/orders" },
 ];
 
 export default function DashboardLayout({ children }: { children: ReactNode }) {

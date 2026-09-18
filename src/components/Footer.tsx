@@ -39,7 +39,7 @@ export function Footer() {
               />
             </Link>
             <p className="text-[14px] mt-3 max-w-[32ch] text-[#9C99AC]">
-              Building future-ready software — web, app, and AI automation work, one project at a time.
+              Your product, built by a real team — fast, reliable, and maintained by the people who built it.
             </p>
             <div className="flex gap-3 mt-6">
               <a
@@ -66,7 +66,7 @@ export function Footer() {
             <ul className="list-none m-0 p-0 space-y-2.5">
               <li><Link href="/#process" className="text-sm no-underline transition-colors duration-150 text-[#9C99AC] hover:text-[#F7F6FA]">How it works</Link></li>
               <li><Link href="/terms" className="text-sm no-underline transition-colors duration-150 text-[#9C99AC] hover:text-[#F7F6FA]">Terms &amp; Conditions</Link></li>
-              <li><Link href="/pricing" className="text-sm no-underline transition-colors duration-150 text-[#9C99AC] hover:text-[#F7F6FA]">Privacy Policy</Link></li>
+              <li><Link href="/terms" className="text-sm no-underline transition-colors duration-150 text-[#9C99AC] hover:text-[#F7F6FA]">Privacy Policy</Link></li>
             </ul>
           </div>
 
@@ -77,13 +77,16 @@ export function Footer() {
               <li><Link href="/services/app-development" className="text-sm no-underline transition-colors duration-150 text-[#9C99AC] hover:text-[#F7F6FA]">App Development</Link></li>
               <li><Link href="/services/ai-automation" className="text-sm no-underline transition-colors duration-150 text-[#9C99AC] hover:text-[#F7F6FA]">AI Automation</Link></li>
               <li><Link href="/services/ai-integration" className="text-sm no-underline transition-colors duration-150 text-[#9C99AC] hover:text-[#F7F6FA]">AI Integration</Link></li>
+              <li><Link href="/services/training" className="text-sm no-underline transition-colors duration-150 text-[#9C99AC] hover:text-[#F7F6FA]">Training</Link></li>
+              <li><Link href="/services/optimization" className="text-sm no-underline transition-colors duration-150 text-[#9C99AC] hover:text-[#F7F6FA]">Optimization</Link></li>
+              <li><Link href="/services/web-app-management" className="text-sm no-underline transition-colors duration-150 text-[#9C99AC] hover:text-[#F7F6FA]">Web / App Management</Link></li>
             </ul>
           </div>
 
           <div>
             <h4 className="text-sm mb-4 font-medium text-[#9C99AC]">Resources</h4>
             <ul className="list-none m-0 p-0 space-y-2.5">
-              <li><Link href="/#services" className="text-sm no-underline transition-colors duration-150 text-[#9C99AC] hover:text-[#F7F6FA]">Blog</Link></li>
+              <li><Link href="/#testimonials" className="text-sm no-underline transition-colors duration-150 text-[#9C99AC] hover:text-[#F7F6FA]">Testimonials</Link></li>
               <li><Link href="/" className="text-sm no-underline transition-colors duration-150 text-[#9C99AC] hover:text-[#F7F6FA]">Case Studies</Link></li>
               <li><Link href="/pricing" className="text-sm no-underline transition-colors duration-150 text-[#9C99AC] hover:text-[#F7F6FA]">FAQ</Link></li>
               <li><Link href="/login" className="text-sm no-underline transition-colors duration-150 text-[#9C99AC] hover:text-[#F7F6FA]">Log in</Link></li>
