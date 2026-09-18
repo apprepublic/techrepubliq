@@ -21,7 +21,7 @@ const deliveryFaq = [
   {
     question: "How long does it take?",
     answer:
-      "It depends on scope, and you'll get a timeline alongside your price — most projects run from a few weeks upwards. You see both before you commit to anything.",
+      "It depends on scope. We talk through the work and sequencing before you commit to anything, then keep you informed as the team builds it.",
   },
   {
     question: "Who actually builds it?",
@@ -39,9 +39,9 @@ const deliveryFaq = [
       "Your project stays monitored and maintained. Changes can be quoted individually or covered by a monthly plan, and you can add services from your dashboard.",
   },
   {
-    question: "Can I change my stage later?",
+    question: "Can I change my tier later?",
     answer:
-      "Stages can be upgraded at any time and are never downgraded. When a project nears its limits we'll tell you in the dashboard and by email.",
+      "Tiers can be upgraded at any time and are never downgraded. When a project nears its limits we'll tell you in the dashboard and by email.",
   },
 ];
 
@@ -185,10 +185,10 @@ export default function ServicesPage() {
           ))}
         </div>
         <p className="mt-md text-xs text-slate">
-          Every stage includes hosting, backend and monitoring. Stages can be upgraded at any time
+          Every tier includes hosting, backend and monitoring. Tiers can be upgraded at any time
           and are never downgraded.{" "}
           <Link href="/pricing" className="text-accent hover:underline no-underline">
-            What each stage costs →
+            How tiers work →
           </Link>
         </p>
       </section>
@@ -225,7 +225,7 @@ export default function ServicesPage() {
               Ready to build? Get started.
             </h2>
             <p className="text-sm text-slate">
-              Describe your project and we&apos;ll come back with scope, timeline and one number.
+              Describe your project and we&apos;ll come back with scope and one total.
             </p>
           </div>
           <div className="flex flex-col sm:flex-row gap-sm shrink-0">

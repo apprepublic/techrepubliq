@@ -8,7 +8,6 @@ import { api } from "@/lib/api";
 import {
   formatMoney,
   fxLine,
-  installmentSummary,
   PROVIDER_LABEL,
   type PaymentIntent,
 } from "@/lib/payments/provider";
@@ -26,7 +25,15 @@ export default function CheckoutPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [scriptLoaded, setScriptLoaded] = useState(false);
-  const [params, setParams] = useState({ ref: "", category: "", discountCode: "" });
+  const [params, setParams] = useState({
+    ref: "",
+    category: "",
+    discountCode: "",
+    cadence: "annual",
+    devFeeMode: "once",
+  });
+  const [email, setEmail] = useState("");
+  const [emailError, setEmailError] = useState("");
   const [intent, setIntent] = useState<PaymentIntent | null>(null);
   const [intentError, setIntentError] = useState("");
 
@@ -36,7 +43,10 @@ export default function CheckoutPage() {
       ref: sp.get("ref") ?? "",
       category: sp.get("category") ?? "",
       discountCode: sp.get("discount") ?? "",
+      cadence: sp.get("cadence") === "monthly" ? "monthly" : "annual",
+      devFeeMode: sp.get("devFeeMode") === "installments" ? "installments" : "once",
     });
+    setEmail(sessionStorage.getItem("customer_email") ?? "");
 
     if (!document.querySelector('script[src="https://js.paystack.co/v1/inline.js"]')) {
       const script = document.createElement("script");
@@ -50,14 +60,24 @@ export default function CheckoutPage() {
 
   // The total comes from the server, recomputed from the stored quote. The browser never
   // works out money, and the rate shown is the one locked onto the intent.
+  const emailIsValid = /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email.trim());
+
   useEffect(() => {
-    if (!params.ref) return;
+    if (!params.ref || !emailIsValid) {
+      setIntent(null);
+      setIntentError("");
+      return;
+    }
     let cancelled = false;
+    setIntent(null);
+    setIntentError("");
 
     api.payments
       .createIntent({
         quoteRef: params.ref,
-        email: sessionStorage.getItem("customer_email") || undefined,
+        email: email.trim(),
+        cadence: params.cadence === "monthly" ? "monthly" : "annual",
+        devFeeMode: params.devFeeMode === "installments" ? "installments" : "once",
         discountCode: params.discountCode || undefined,
       })
       .then((res) => {
@@ -72,15 +92,18 @@ export default function CheckoutPage() {
     return () => {
       cancelled = true;
     };
-  }, [params.ref, params.discountCode]);
+  }, [params.ref, params.discountCode, params.cadence, params.devFeeMode, email, emailIsValid]);
 
   const service = services.find((s) => s.slug === params.category);
   const total = intent ? formatMoney(intent.amountMinor, intent.currency) : "—";
   const rate = intent ? fxLine(intent.fx, intent.currency) : null;
-  const feeSchedule = intent ? installmentSummary(intent.installments, intent.currency) : null;
-
   const handlePay = async () => {
+    if (!emailIsValid) {
+      setEmailError("Enter a valid email address so we can send your invoice.");
+      return;
+    }
     if (!intent) return;
+    sessionStorage.setItem("customer_email", email.trim());
     setLoading(true);
     setError("");
 
@@ -167,22 +190,11 @@ export default function CheckoutPage() {
                 <span className="text-slate">Quote ref</span>
                 <span className="font-mono text-ink">{params.ref}</span>
               </div>
-              {intent?.discountApplied && (
-                <div className="flex justify-between">
-                  <span className="text-slate">Discount</span>
-                  <span className="font-mono text-success">
-                    −{formatMoney(intent.discountAmountCents, "USD")}
-                  </span>
-                </div>
-              )}
               <div className="border-t border-line pt-sm flex justify-between font-medium">
                 <span className="text-ink">Total</span>
                 <span className="font-mono text-ink text-lg">{total}</span>
               </div>
               {rate && <p className="text-xs text-slate pt-xs">{rate}</p>}
-              {feeSchedule && (
-                <p className="text-xs text-slate pt-xs">Development fee: {feeSchedule}</p>
-              )}
               {intent?.fx?.stale && (
                 <p className="text-xs text-warning pt-xs">
                   This rate may be out of date — we&apos;ll confirm the final amount before charging.
@@ -195,6 +207,35 @@ export default function CheckoutPage() {
         <div className="flex-1 max-w-[440px]">
           <div className="border border-line rounded-sm p-lg">
             <h2 className="text-md font-display font-semibold text-ink mb-md">Payment</h2>
+
+            <div className="mb-lg">
+              <label htmlFor="checkout-email" className="text-sm font-medium text-ink mb-sm block">
+                Email for your invoice <span className="text-error">*</span>
+              </label>
+              <input
+                id="checkout-email"
+                type="email"
+                value={email}
+                onChange={(e) => {
+                  setEmail(e.target.value);
+                  setEmailError("");
+                }}
+                autoComplete="email"
+                required
+                placeholder="you@example.com"
+                className={`w-full border rounded-sm px-md py-sm text-sm font-body text-ink bg-paper focus:border-accent outline-none transition-colors duration-150 ${emailError ? "border-error" : "border-line"}`}
+                aria-invalid={!!emailError}
+                aria-describedby={emailError ? "checkout-email-error" : undefined}
+              />
+              {emailError && (
+                <p id="checkout-email-error" className="text-xs text-error mt-xs">
+                  {emailError}
+                </p>
+              )}
+              <p className="text-xs text-slate mt-xs">
+                We&apos;ll send the unpaid invoice now and a paid copy when your payment clears.
+              </p>
+            </div>
 
             <p className="text-xs text-slate mb-md">
               {intent
@@ -243,7 +284,7 @@ export default function CheckoutPage() {
             <Button
               className="w-full"
               disabled={!agreed || !intent || loading}
-              loading={loading || (!intent && !intentError)}
+              loading={loading || (!!params.ref && emailIsValid && !intent && !intentError)}
               onClick={handlePay}
             >
               {intent ? `Pay ${total}` : "Preparing…"}

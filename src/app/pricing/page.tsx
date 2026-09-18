@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Accordion } from "@/components/Accordion";
 import { Button } from "@/components/Button";
 import Link from "next/link";
+import { TIERS, revisionLabel } from "@/lib/product";
 
 /**
  * WP7 policy copy, rewritten to PRD v2.5 answers.
@@ -24,7 +25,7 @@ const faqGroups = [
         id: "how-the-fee-is-calculated",
         question: "How is the development fee calculated?",
         answer:
-          "A $500 base, plus $3 per page and $3 per component, adjusted for complexity — the same math at every stage. The pages, components and complexity are read from your brief, and you see the result as one total before you pay.",
+          "A $500 base, plus $3 per page and $3 per component, adjusted for complexity — the same math at every tier. The pages, components and complexity are read from your brief, and you see the result as one total before you pay.",
       },
       {
         id: "is-it-binding",
@@ -60,7 +61,7 @@ const faqGroups = [
         id: "recurring-cadence",
         question: "How are the recurring services billed?",
         answer:
-          "Annually by default. Monthly billing is available and costs 15% more over the year. Either way, a paid period runs to its end — you can cancel a service and it stops at the next renewal date.",
+          "Annually by default. Monthly billing is available. Either way, a paid period runs to its end — you can cancel a service and it stops at the next renewal date.",
       },
       {
         id: "payment-methods",
@@ -108,13 +109,13 @@ const faqGroups = [
         id: "post-launch-changes",
         question: "What if I need changes after launch?",
         answer:
-          "Changes can be quoted individually, or covered by a monthly plan of 10, 25, 50 or unlimited edits a month. Before launch, your review rounds cover them instead.",
+          "Changes can be quoted individually, or covered by a monthly plan: $100 for up to 10 edits, $200 for up to 25, $500 for up to 50, or $1,000 for unlimited edits. Before launch, your review rounds cover them instead.",
       },
       {
         id: "reviews",
         question: "How many review rounds do I get?",
         answer:
-          "MVP 3, Startup 5, Business 10, and unlimited on Enterprise. Extra rounds can be bought before launch; after launch, changes are quoted per edit or covered by a monthly plan.",
+          "MVP 3, Startup 5, Business 10, and unlimited on Enterprise. Before launch, extra reviews are exactly $10 for +2 or $15 for +3, and can be purchased again as needed. After launch, changes are quoted per edit or covered by a monthly plan.",
       },
     ],
   },
@@ -193,6 +194,54 @@ export default function PricingPage() {
         number, and it doesn&apos;t move unless the scope does.
       </p>
 
+      <section className="mb-xl">
+        <h2 className="font-display text-md font-semibold text-ink mb-sm">
+          Project Services tiers
+        </h2>
+        <p className="text-sm leading-relaxed text-slate mb-md">
+          Annual service pricing is the default. Tiers change recurring service headroom and
+          included review capacity — never the one-time development-fee math.
+        </p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-sm">
+          {TIERS.map((tier) => (
+            <div
+              key={tier.id}
+              className={`border rounded-sm p-md ${
+                tier.id === "startup" ? "border-accent bg-accent-dim" : "border-line"
+              }`}
+            >
+              <div className="flex items-baseline justify-between gap-sm">
+                <p className="font-display text-md font-semibold text-ink">{tier.name}</p>
+                <p className="font-mono text-sm text-ink">
+                  {tier.monthlyCents === null
+                    ? "Contact Sales"
+                    : `$${tier.monthlyCents / 100}/mo`}
+                </p>
+              </div>
+              <p className="text-xs text-slate mt-xs">{tier.for}</p>
+              <ul className="mt-sm space-y-xs text-xs text-slate">
+                <li>
+                  {tier.requestsPerDay === null
+                    ? "Traffic capacity arranged through Contact Sales"
+                    : `${tier.requestsPerDay.toLocaleString()} requests/day`}
+                </li>
+                <li>
+                  {tier.emailPerDay === null
+                    ? "Email volume arranged through Contact Sales"
+                    : `${tier.emailPerDay.toLocaleString()} emails/day`}
+                </li>
+                <li>{revisionLabel(tier.id)}</li>
+              </ul>
+            </div>
+          ))}
+        </div>
+        <p className="mt-md text-xs text-slate">
+          At Startup, the standard add-on baselines are $10/month for maps and location services
+          and $25/month for Email Center or AI features. Other tiers scale recurring service
+          pricing; Enterprise is arranged through Contact Sales.
+        </p>
+      </section>
+
       <div className="space-y-xl">
         {faqGroups.map((group) => (
           <section key={group.id} id={group.id}>
@@ -214,7 +263,7 @@ export default function PricingPage() {
       <div className="mt-xl pt-xl border-t border-line text-center">
         <p className="text-base text-slate mb-md">
           Still have a question? Describe your project and we&apos;ll come back with scope,
-          timeline and one number.
+          scope and one total.
         </p>
         <Link href="/quote">
           <Button variant="ghost">Get Started</Button>

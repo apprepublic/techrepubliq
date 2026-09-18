@@ -679,3 +679,54 @@ decision 19 (no prices on browsing surfaces — the tier cards show requests/day
   derived subdomain would 404 until the build pipeline exists; the honest empty state is
   better than a dead link. This blocks §9.1's "every project under preview gets a
   TechRepubliQ subdomain link" and is an **operational dependency, not a code gap**.
+
+## 22. Public-site audit against PRD v2.5 (2026-09-19)
+
+This iteration audited the public surfaces only and deliberately excluded the homepage
+(`src/app/page.tsx`) and the v7 landing document (`public/TechRepubliQ-preview_v7.html`).
+The OBJ, GIF panel, landing layout, landing theme CSS, and all guardrail fingerprints were
+left untouched.
+
+**Scope checked:** `/about` · `/services` · all seven `/services/<slug>` pages · the retired
+`/services/web-ui-design` compatibility page · `/pricing` · the five-step `/quote` flow ·
+`/login` · `/verify` · `/terms` · `/checkout` · `/checkout/confirmation`, including the
+shared public navigation/footer and all public route responses.
+
+**Compliant after the pass:**
+- Services IA has exactly the seven locked categories, value-first copy, human build/review
+  language, hosting/backend inclusion, tier capability figures in requests/day, and no browsing
+  page rate card. Detail pages expose outcomes, included work, intake, process, FAQ, and
+  `Get Started`; the retired slug remains a safe compatibility page.
+- Pricing now states the $500 + $3/page + $3/component development-fee rule, identical across
+  tiers; the four tier service prices and limits; Startup add-on baselines ($10 maps/location,
+  $25 Email Center, $25 AI); exact pre-launch review packs; and exact post-launch edit plans.
+  Enterprise remains `Contact Sales` with no figure.
+- Quote intake covers category, tier recommendation metrics (traffic, users, transactions,
+  staff, business stage), category assets/logo, web/app domain handling, AI add-ons, manual
+  `Add additional add-on`, the `Analyzing project…` state, one-total summary, fee mode, cadence,
+  and app-store/domain one-time services. The final editable choices are saved to a fresh
+  server quote before payment, so checkout cannot charge the earlier draft.
+- Terms and checkout consistently state no refunds, OTP/owner-only migration policy, front-end
+  only downloads, confidentiality, 7-day grace, service removal without project deletion,
+  12 even installments, and the one-time 15% discount without customer-facing markup framing.
+- Checkout collects a validated invoice email, forwards the selected cadence and fee mode to
+  the payment worker, and the Stripe return parameter is now displayed on confirmation.
+- Login no longer exposes a dead `/forgot-password` link. Verification, Enterprise Contact
+  Sales, the retired service route, and all 17 in-scope public routes return HTTP 200 in the
+  local preview.
+
+**Fixes made during this audit:**
+- Removed price-led or obsolete `priced once`/`one upfront price` copy from non-pricing browsing
+  surfaces, removed the timeline promise, and standardised public terminology on `tier`.
+- Added the missing tier/add-on/edit/review information to `/pricing`.
+- Removed purchase-time monetary line-item breakdowns from the quote and checkout while keeping
+  the controls required by §1.6; the screen presents one final total.
+- Removed the non-payable client-only quote fallback. A quote must be persisted server-side
+  before Proceed to Payment; summary changes are persisted again before redirecting.
+- Required an email before creating a payment intent. Pending intents are reused for the same
+  quote, email, provider, currency, and total, so a refresh does not send another unpaid invoice
+  or consume a discount code again. The invoice is still sent only after the payment rail starts.
+
+**Not part of this iteration:** the homepage and v7 document were not edited; visual QA across
+light/dark modes and ≤860px/≤640px still needs a human view through the live preview. The
+previously recorded `preview_url` build-pipeline dependency remains unchanged.

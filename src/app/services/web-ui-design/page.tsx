@@ -9,7 +9,7 @@ import Link from "next/link";
 export const metadata: Metadata = {
   title: "Web UI Design — now part of Web Development — TechRepubliQ",
   description:
-    "Web UI Design is now part of our Web Development service. Describe your project and get one upfront price.",
+    "Web UI Design is now part of our Web Development service. Describe your project and let a real team scope and build it.",
 };
 
 export default function WebUiDesignPage() {
@@ -24,7 +24,7 @@ export default function WebUiDesignPage() {
       <p className="text-base leading-relaxed text-slate mb-lg">
         Interface design isn&apos;t a separate product for us any more — it&apos;s the first
         thing that happens inside a Web Development project. You describe what you need, we
-        price it once, and a real team designs, builds and launches it.
+        scope it from your brief, and a real team designs, builds and launches it.
       </p>
       <div className="flex flex-wrap gap-sm">
         <Link

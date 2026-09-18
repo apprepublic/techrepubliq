@@ -148,7 +148,7 @@ export default function ServicePageClient({ slug }: { slug: string }) {
             <CornerBracketFrame className="bg-accent-dim">
               <p className="text-sm text-slate mb-sm">Scoped from your brief</p>
               <p className="font-mono text-[28px] leading-[36px] font-medium text-ink mb-xs">
-                One upfront price
+                Scope before we build
               </p>
               <p className="text-xs text-slate mb-lg">
                 We work out the pages, components and complexity in your brief and come back with a

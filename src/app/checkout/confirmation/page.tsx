@@ -10,7 +10,8 @@ export default function ConfirmationPage() {
 
   useEffect(() => {
     document.title = "Order Confirmed — TechRepubliQ";
-    setRef(new URLSearchParams(window.location.search).get("ref") ?? "");
+    const params = new URLSearchParams(window.location.search);
+    setRef(params.get("ref") ?? params.get("reference") ?? "");
   }, []);
 
   return (

@@ -183,11 +183,6 @@ export default function LoginPage() {
                 </button>
               </div>
               {passwordError && <p id="pw-error" className="text-xs text-error mt-xs">{passwordError}</p>}
-              {tab === "login" && (
-                <Link href="/forgot-password" className="inline-block mt-xs text-xs text-accent hover:text-accent-hover no-underline transition-colors duration-150">
-                  Forgot password?
-                </Link>
-              )}
             </div>
 
             {error && <div role="alert" className="mb-md p-sm bg-error/10 border border-error rounded-sm text-sm text-error">{error}</div>}

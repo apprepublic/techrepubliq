@@ -147,8 +147,8 @@ export const ADDON_CATALOG = [
   {
     id: "google",
     kind: "google",
-    label: "Google-powered services",
-    example: "Maps, Places, Address autocomplete",
+    label: "Maps and location services",
+    example: "Maps, address search, directions",
     multiple: 0.4,
   },
   {

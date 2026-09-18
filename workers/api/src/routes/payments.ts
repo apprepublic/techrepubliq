@@ -355,9 +355,6 @@ export const payments = {
         : code.amount_cents;
       discountAmountCents = Math.min(discountAmountCents, amountCents);
 
-      await env.DB.prepare("UPDATE discount_codes SET used_count = used_count + 1 WHERE code = ?")
-        .bind(discountCode)
-        .run();
     }
 
     const finalCents = Math.max(0, amountCents - discountAmountCents);
@@ -391,32 +388,63 @@ export const payments = {
         ? installmentSchedule(price.devFee.listCents, toMinor)
         : null;
 
-    const intentId = `PI-${generateId()}`;
-    const email = String(body?.email ?? quote.contact_email ?? "");
+    const email = String(body?.email ?? quote.contact_email ?? "").trim();
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
+      return error(400, "A valid email is required for the invoice");
+    }
 
-    await env.DB.prepare(
-      `INSERT INTO payment_intents
-         (id, quote_reference, customer_email, provider, currency, amount_cents, amount_minor,
-          fx_rate_used, fx_fetched_at, discount_code, discount_cents, status)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Pending')`
+    // A refresh of the checkout page must not mint a second intent for the same quote.
+    // It matters more than it looks: the unpaid invoice (§1.7) goes out when an intent is
+    // created, so without this the customer gets one email per page load. Include the email
+    // so a shared quote cannot reuse an intent addressed to somebody else.
+    const existing = await env.DB.prepare(
+      `SELECT * FROM payment_intents
+        WHERE quote_reference = ? AND status = 'Pending'
+          AND customer_email = ? AND provider = ? AND currency = ?
+          AND amount_cents = ? AND amount_minor = ?
+        ORDER BY created_at DESC LIMIT 1`
     )
       .bind(
-        intentId,
         quoteRef,
         email,
         providerId,
         presentment.currency,
         finalCents,
-        presentment.amountMinor,
-        presentment.fxRateUsed,
-        presentment.fxFetchedAt,
-        discountCode || null,
-        discountAmountCents
+        presentment.amountMinor
       )
-      .run();
+      .first<any>();
 
-    if (discountCode) {
-      // Usage was counted above; keep the intent honest about what was applied.
+    const intentId = existing?.id ?? `PI-${generateId()}`;
+
+    if (!existing) {
+      await env.DB.prepare(
+        `INSERT INTO payment_intents
+           (id, quote_reference, customer_email, provider, currency, amount_cents, amount_minor,
+            fx_rate_used, fx_fetched_at, discount_code, discount_cents, status)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Pending')`
+      )
+        .bind(
+          intentId,
+          quoteRef,
+          email,
+          providerId,
+          presentment.currency,
+          finalCents,
+          presentment.amountMinor,
+          presentment.fxRateUsed,
+          presentment.fxFetchedAt,
+          discountCode || null,
+          discountAmountCents
+        )
+        .run();
+    }
+
+    if (discountCode && !existing) {
+      // Count a discount only when this checkout creates a new intent. A refresh reuses the
+      // pending intent and must not consume the same code again.
+      await env.DB.prepare("UPDATE discount_codes SET used_count = used_count + 1 WHERE code = ?")
+        .bind(discountCode)
+        .run();
     }
 
     const provider = getProvider(providerId);
@@ -443,8 +471,9 @@ export const payments = {
 
       // PRD §1.7 — proceeding to payment emails an unpaid invoice straight away; there is
       // no "Generate Invoice" step. §1.8's paid copy goes out from onPaymentSucceeded.
-      // The rail is already started, so this fires once and only on a real attempt.
-      if (email) {
+      // Only on a freshly created intent: re-opening an existing one is a page refresh,
+      // and the customer already has the invoice.
+      if (!existing && email) {
         try {
           env.ctx.waitUntil(
             sendInvoiceEmail(env, email, {

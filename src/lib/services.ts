@@ -40,7 +40,7 @@ const CONTENT: Omit<Service, "fromCents" | "assets">[] = [
     title: "Web Development",
     short: "Websites, web apps and platforms — built, hosted and launched.",
     hero:
-      "From a marketing site to a full platform with accounts, dashboards and payments. You describe it, we price it once, and a real team builds and launches it.",
+      "From a marketing site to a full platform with accounts, dashboards and payments. You describe it, we scope it from your brief, and a real team builds and launches it.",
     features: [
       "Responsive, mobile-first build",
       "Front end and back end, including API and database",

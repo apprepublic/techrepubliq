@@ -129,9 +129,8 @@ export default function QuotePage() {
   const [uploading, setUploading] = useState<string | null>(null);
   const [showContactSales, setShowContactSales] = useState(false);
   const [estimate, setEstimate] = useState<ProjectEstimate | null>(null);
-  const [referenceId, setReferenceId] = useState("");
-  const [pricingSource, setPricingSource] = useState<"server" | "local" | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
+  const [proceeding, setProceeding] = useState(false);
   const stepRef = useRef<HTMLDivElement>(null);
 
   const initialQuery = useMemo(() => {
@@ -223,17 +222,18 @@ export default function QuotePage() {
 
     try {
       const pricing = await api.quotes.generate(payload);
-      setReferenceId(pricing.referenceId);
-      setPricingSource("server");
       patch({ addons: pricing.addons, oneTimeServices: pricing.oneTimeServices });
       goToStep(4);
-    } catch {
-      // The client carries the same model, so the summary can still be shown;
-      // payment will be recomputed server-side against this reference.
-      setReferenceId(`QR-${Date.now().toString(36).toUpperCase()}`);
-      setPricingSource("local");
-      patch({ addons: payload.addons, oneTimeServices: payload.oneTimeServices });
-      goToStep(4);
+    } catch (err) {
+      // A local estimate is useful for previewing, but it is not a payable quote. Do not
+      // manufacture a reference that the payment worker cannot find; keep the customer on
+      // the brief step and make them retry while the server is reachable.
+      setNetworkError(
+        err instanceof Error
+          ? err.message
+          : "We couldn't save your quote. Check your connection and try again."
+      );
+      setStep(2);
     } finally {
       setAnalyzing(false);
     }
@@ -266,17 +266,7 @@ export default function QuotePage() {
     const at = (devFeeMode: "once" | "installments", cadence: "annual" | "monthly") =>
       computePrice({ ...input, devFeeMode, cadence });
     const current = at(session.devFeeMode, session.cadence);
-    const annual = at(session.devFeeMode, "annual");
-    return {
-      dueNowCents: current.dueNowCents,
-      devFeeCents: current.devFeeCents,
-      feeOnceCents: current.devFee.payOnceCents,
-      feePerMonthCents: current.devFee.perMonthCents[0],
-      servicesAnnualCents: current.servicesAnnualCents,
-      servicesMonthlyCents: current.servicesMonthlyCents,
-      oneTimeServicesCents: current.oneTimeServicesCents,
-      renewalCents: annual.servicesAnnualCents,
-    };
+    return { dueNowCents: current.dueNowCents };
   }, [estimate, session]);
 
   const recommendedTier = useMemo(
@@ -322,12 +312,22 @@ export default function QuotePage() {
         : [...session.addons, id],
     });
 
-  const toggleOneTime = (id: string) =>
+  const toggleOneTime = (id: string) => {
+    // Registering a domain in the intake is the source of truth; it cannot be
+    // unchecked later in the summary while the customer still chose "buy".
+    if (
+      id === "domain-purchase" &&
+      session.domainOption === "buy" &&
+      session.oneTimeServices.includes(id)
+    ) {
+      return;
+    }
     patch({
       oneTimeServices: session.oneTimeServices.includes(id)
         ? session.oneTimeServices.filter((s) => s !== id)
         : [...session.oneTimeServices, id],
     });
+  };
 
   // Registering a domain through us adds the one-time service, and vice versa.
   useEffect(() => {
@@ -356,13 +356,53 @@ export default function QuotePage() {
     exit: (d: number) => ({ x: d > 0 ? -24 : 24, opacity: 0 }),
   };
 
-  const proceedToPayment = () => {
-    if (!totals?.dueNowCents) return;
-    const amount = (totals.dueNowCents / 100).toFixed(2);
-    router.push(
-      `/checkout?ref=${referenceId}&amount=${amount}&category=${session.category}` +
-        `&cadence=${session.cadence}&devFeeMode=${session.devFeeMode}`
-    );
+  const proceedToPayment = async () => {
+    if (!totals?.dueNowCents || !estimate || proceeding) return;
+    setProceeding(true);
+    setNetworkError("");
+
+    // The summary is still editable: fee mode, cadence, add-ons and one-time services may
+    // have changed since the first analysis. Save those final choices into a fresh server
+    // quote so checkout recomputes the same total instead of charging the original draft.
+    try {
+      const pricing = await api.quotes.generate({
+        category: session.category,
+        tierId: session.tierId as TierId,
+        brief: session.brief,
+        pages: estimate.pages,
+        components: estimate.components,
+        complexity: estimate.complexity as ComplexityId,
+        metrics: {
+          requestsPerDay: Number(session.metrics.requestsPerDay) || 0,
+          users: Number(session.metrics.users) || 0,
+          transactions: Number(session.metrics.transactions) || 0,
+          staff: Number(session.metrics.staff) || 0,
+          stage: session.metrics.stage || undefined,
+        },
+        assets: session.assets.map((a) => ({ key: a.key, name: a.name })),
+        domainOption: session.domainOption || undefined,
+        cadence: session.cadence,
+        devFeeMode: session.devFeeMode,
+        addons: session.addons,
+        oneTimeServices: session.oneTimeServices,
+      });
+      patch({ addons: pricing.addons, oneTimeServices: pricing.oneTimeServices });
+      const params = new URLSearchParams({
+        ref: pricing.referenceId,
+        category: session.category,
+        cadence: session.cadence,
+        devFeeMode: session.devFeeMode,
+      });
+      router.push(`/checkout?${params.toString()}`);
+    } catch (err) {
+      setNetworkError(
+        err instanceof Error
+          ? err.message
+          : "We couldn't save your final choices. Check your connection and try again."
+      );
+    } finally {
+      setProceeding(false);
+    }
   };
 
   const inputClass =
@@ -742,8 +782,8 @@ export default function QuotePage() {
           {step === 4 && totals && (
             <div>
               <p className="text-sm text-slate mb-md">
-                One price for the build, one for the services that keep it running. Nothing is
-                metered, and there are no tokens to run out of.
+                Your total updates as you choose the fee option, billing cadence and additional
+                services. At purchase, you see one final total — no line-item breakdown.
               </p>
 
               <div className="border border-line rounded-sm p-lg mb-lg">
@@ -755,10 +795,8 @@ export default function QuotePage() {
                 </p>
                 <p className="text-xs text-slate mt-sm">
                   {session.devFeeMode === "once"
-                    ? "Build fee paid in full, with 15% off, plus your first year of services."
-                    : `First of 12 monthly payments of ${formatUsd(
-                        totals.feePerMonthCents
-                      )}, plus your first year of services.`}
+                    ? "One-time development fee paid in full with 15% off."
+                    : "Development fee split into 12 even monthly payments, with no interest or markup."}
                 </p>
               </div>
 
@@ -769,11 +807,11 @@ export default function QuotePage() {
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-sm">
                     {(
                       [
-                        { id: "once", label: "Pay once — 15% off", value: totals.feeOnceCents },
+                        { id: "once", label: "Pay once — 15% off", note: "One payment" },
                         {
                           id: "installments",
                           label: "12 monthly payments",
-                          value: totals.feePerMonthCents,
+                          note: "No interest or markup",
                         },
                       ] as const
                     ).map((option) => (
@@ -793,7 +831,7 @@ export default function QuotePage() {
                           className="sr-only"
                         />
                         <span className="block">{option.label}</span>
-                        <span className="font-mono text-xs">{formatUsd(option.value)}</span>
+                        <span className="text-xs text-slate">{option.note}</span>
                       </label>
                     ))}
                   </div>
@@ -808,14 +846,12 @@ export default function QuotePage() {
                         {
                           id: "annual",
                           label: "Annually",
-                          value: totals.servicesAnnualCents,
                           note: "Default",
                         },
                         {
                           id: "monthly",
-                          label: "Monthly (+15%)",
-                          value: totals.servicesMonthlyCents,
-                          note: null,
+                          label: "Monthly",
+                          note: "Paid month to month",
                         },
                       ] as const
                     ).map((option) => (
@@ -840,13 +876,12 @@ export default function QuotePage() {
                             <span className="text-xs text-slate"> · {option.note}</span>
                           )}
                         </span>
-                        <span className="font-mono text-xs">{formatUsd(option.value)}</span>
                       </label>
                     ))}
                   </div>
                   <p className="text-xs text-slate mt-sm">
-                    Renews at {formatUsd(totals.renewalCents)} a year. Hosting and backend are
-                    included and never itemised.
+                    Annual billing is the default. Hosting and backend are included and never
+                    itemised.
                   </p>
                 </div>
 
@@ -854,9 +889,7 @@ export default function QuotePage() {
                 <div className="border border-line rounded-sm p-md">
                   <div className="flex items-center justify-between gap-sm mb-sm">
                     <p className="text-sm font-medium text-ink">Project services</p>
-                    <span className="font-mono text-xs text-slate">
-                      {formatUsd(totals.servicesAnnualCents)}/yr
-                    </span>
+                    <span className="text-xs text-slate">Included in your total</span>
                   </div>
                   {session.addons.length === 0 ? (
                     <p className="text-xs text-slate">
@@ -932,6 +965,7 @@ export default function QuotePage() {
                                 type="checkbox"
                                 checked={session.oneTimeServices.includes(s.id)}
                                 onChange={() => toggleOneTime(s.id)}
+                                disabled={s.id === "domain-purchase" && session.domainOption === "buy"}
                                 className="mt-1 accent-accent"
                               />
                               <span>
@@ -939,38 +973,12 @@ export default function QuotePage() {
                                 <span className="block text-xs text-slate">{s.note}</span>
                               </span>
                             </span>
-                            <span className="font-mono text-xs shrink-0">
-                              {formatUsd(s.cents)}
-                            </span>
                           </label>
                         ))}
                     </div>
                   </div>
                 )}
               </div>
-
-              {estimate && (
-                <details className="mb-lg text-xs text-slate">
-                  <summary className="cursor-pointer hover:text-ink">
-                    How this was worked out
-                  </summary>
-                  <ul className="mt-sm space-y-xs">
-                    <li>
-                      {estimate.pages} pages · {estimate.components} components/models ·{" "}
-                      {estimate.complexity} complexity
-                    </li>
-                    {estimate.signals.slice(0, 6).map((signal) => (
-                      <li key={signal}>{signal}</li>
-                    ))}
-                  </ul>
-                </details>
-              )}
-
-              {pricingSource === "local" && (
-                <p className="mb-lg text-xs text-amber">
-                  Priced on this device — we&apos;ll confirm the total when you pay.
-                </p>
-              )}
             </div>
           )}
         </motion.div>
@@ -1012,7 +1020,11 @@ export default function QuotePage() {
           )}
 
           {step === 4 && (
-            <Button onClick={proceedToPayment} disabled={!totals?.dueNowCents}>
+            <Button
+              onClick={proceedToPayment}
+              disabled={!totals?.dueNowCents || proceeding}
+              loading={proceeding}
+            >
               Proceed to Payment
             </Button>
           )}

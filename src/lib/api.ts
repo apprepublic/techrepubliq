@@ -202,8 +202,6 @@ export interface QuotePricing {
   };
   addons: string[];
   oneTimeServices: string[];
-  /** "local" when the API was unreachable and the client model priced it instead. */
-  source?: "server" | "local";
 }
 
 export interface ContactSalesLeadInput {
