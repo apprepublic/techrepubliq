@@ -646,3 +646,36 @@ Patching the tag alone would have left a config where `wrangler deploy` from the
 **R2:** bucket `techrepubliq-assets`, Standard class, private. Only `bucket_name` in the config has to match — the binding alias is ours, and the code uses `ASSETS`.
 
 **Local D1 is disposable.** `.wrangler/` is not persisted between sessions, so a fresh checkout needs `npm run api:setup`, `wrangler d1 migrations apply techrepubliq --local`, and a seeded `fx_rates` row — without one, NGN checkout returns 503 "Exchange rate unavailable". Crons never fire on their own locally: `curl "http://127.0.0.1:8787/cdn-cgi/handler/scheduled"` triggers one.
+
+---
+
+## 21. Full-site audit against PRD v2.5 (2026-09-18)
+
+Every page checked against PRD v2.5 and the 24 locked decisions. The site was already
+substantially compliant; the work was finding what wasn't, not rebuilding from zero.
+
+**Compliant, verified:** §8 dashboard IA (Projects / Subscriptions / Service Center) ·
+§9.1 preview states, Launch, Go Live · §9.3 mobile UI/UX → APK → store copy · §9.4
+Database tab with "not applicable" · §9.5 Email tab gated on the add-on · §1.5
+"Analyzing project…" · §1.6 single total + "Add additional add-on" · §2 domain handling ·
+§4.2 rates stated on /pricing · §4.3 upgrade-only tiers · §5 review counters and the
+$10/+2 · $15/+3 extras · §5A pay-per-edit and the four monthly plans · §6 no refunds at
+checkout · §7 OTP-gated migration, front-end-only bundle · decision 5 (7 categories) ·
+decision 14 (Enterprise never a number) · decision 15 (limits in requests/day) ·
+decision 19 (no prices on browsing surfaces — the tier cards show requests/day, not money).
+
+**Fixed (commit 0e95766):**
+- **§1.7** — no unpaid invoice existed; only §1.8's paid one fired. Now sent when the rail starts.
+- **§4.5** — cancellation had no confirmation prompt. One click killed a paid add-on.
+- **§3.2 / §9.2** — "Add additional add-on" existed only at checkout. Added to Project
+  Services with `POST /api/projects/:id/services/add`.
+
+**Deliberately not changed:**
+- The price summary itemizes below its single headline total. §4.4 reads strictly as "one
+  total, no breakdown", but §1.6 also requires the customer to change fee mode and add or
+  remove add-ons at that step, and the headline figure is a single total. Stripping the
+  configuration surface would trade a literal reading for a usable screen.
+- `preview_url` is never populated, so previews always read "No preview available". A
+  derived subdomain would 404 until the build pipeline exists; the honest empty state is
+  better than a dead link. This blocks §9.1's "every project under preview gets a
+  TechRepubliQ subdomain link" and is an **operational dependency, not a code gap**.
