@@ -1,5 +1,27 @@
-# Worker secrets (never commit this file)
-PAYSTACK_SECRET_KEY=pst_xxx
-STRIPE_SECRET_KEY=sk_xxx
-JWT_SECRET=change-me-to-a-random-string
-FROM_EMAIL=noreply@techrepubliq.com
+# Local secrets for `wrangler dev`. Copy to .dev.vars and fill in real values:
+#   cp .dev.vars.example .dev.vars
+#
+# .dev.vars is git-ignored — never commit the real file. Everything below is a dummy
+# test value, so nothing here works against a live provider.
+
+# Paystack (NGN rail)
+PAYSTACK_SECRET_KEY=sk_test_replace_me
+PAYSTACK_PUBLIC_KEY=pk_test_replace_me
+
+# Stripe (default USD rail)
+STRIPE_SECRET_KEY=sk_test_replace_me
+STRIPE_PUBLISHABLE_KEY=pk_test_replace_me
+# From the Stripe webhook endpoint — without it, signature verification refuses to run.
+STRIPE_WEBHOOK_SECRET=whsec_replace_me
+
+# PayPal (alternative USD rail)
+PAYPAL_CLIENT_ID=paypal_client_replace_me
+PAYPAL_CLIENT_SECRET=paypal_secret_replace_me
+PAYPAL_WEBHOOK_ID=webhook_id_replace_me
+# Uncomment to point at the sandbox instead of live:
+# PAYPAL_API_BASE=https://api-m.sandbox.paypal.com
+
+# Signing and delivery
+JWT_SECRET=local_test_secret
+FROM_EMAIL=no-reply@techrepubliq.com
+ADMIN_EMAIL=admin@techrepubliq.com

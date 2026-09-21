@@ -53,7 +53,7 @@ export function Modal({ isOpen, onClose, title, children }: ModalProps) {
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.95 }}
             transition={{ duration: 0.22, ease: [0.2, 0.8, 0.2, 1] }}
-            className="fixed inset-0 m-auto z-50 w-full max-w-md bg-paper-raised border border-line rounded-sm p-lg pt-xl max-h-[80vh] overflow-y-auto"
+            className="fixed inset-0 m-auto z-50 w-full max-w-md bg-[#F6F5F9] dark:bg-[#141220] border border-[#E8E6F0] rounded-[20px] p-lg pt-xl max-h-[80vh] overflow-y-auto h-fit"
           >
             <div className="flex items-center justify-between mb-lg">
               <h2 className="text-lg font-display font-semibold text-ink">

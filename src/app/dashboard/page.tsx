@@ -1,138 +1,87 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
+import { api, type ProjectRow, type TierNudge } from "@/lib/api";
+import { serviceTitle } from "@/lib/product";
+import { useTone } from "@/lib/theme";
+import { PrimaryLink } from "@/components/product-ui";
 import { StatusBadge } from "@/components/StatusBadge";
-import { Button } from "@/components/Button";
-import { motion } from "motion/react";
-
-const orders = [
-  {
-    id: "ORD-001",
-    service: "Web Development",
-    date: "2026-08-15",
-    status: "In Progress" as const,
-    referenceId: "QR-XK8F2A",
-  },
-  {
-    id: "ORD-002",
-    service: "AI Integration",
-    date: "2026-07-28",
-    status: "Delivered" as const,
-    referenceId: "QR-M3P9Q1",
-  },
-  {
-    id: "ORD-003",
-    service: "Web / UI Design",
-    date: "2026-07-10",
-    status: "Paid" as const,
-    referenceId: "QR-J2R7B4",
-  },
-];
-
-const staggerContainer = {
-  hidden: { opacity: 0 },
-  show: {
-    opacity: 1,
-    transition: { staggerChildren: 0.05 },
-  },
-};
-
-const staggerItem = {
-  hidden: { opacity: 0, y: 8 },
-  show: { opacity: 1, y: 0 },
-};
 
 export default function DashboardPage() {
+  const t = useTone();
+  const [projects, setProjects] = useState<ProjectRow[]>([]);
+  const [nudges, setNudges] = useState<TierNudge[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    api.projects
+      .list()
+      .then((response) => {
+        setProjects(response.projects);
+        setNudges(response.nudges);
+      })
+      .catch((requestError) => {
+        setError(requestError instanceof Error ? requestError.message : "Could not load projects.");
+      })
+      .finally(() => setLoading(false));
+  }, []);
+
   return (
     <div>
-      <h1 className="font-display text-[28px] leading-[36px] font-semibold text-ink mb-lg">
-        Orders
-      </h1>
+      <div className="mb-8 flex items-end justify-between gap-4">
+        <div>
+          <h1 className={`font-display text-[28px] font-semibold ${t.ink}`}>Projects</h1>
+          <p className={`mt-1 text-[14px] ${t.muted}`}>Everything being built or already live.</p>
+        </div>
+        <PrimaryLink href="/quote" className="!px-4 !py-2 text-[13px]">
+          New project
+        </PrimaryLink>
+      </div>
 
-      {orders.length === 0 ? (
-        <div className="text-center py-xl">
-          <p className="text-base text-slate mb-lg">
-            You haven&apos;t placed any orders yet.
-          </p>
-          <Link href="/quote">
-            <Button>Request a Quote</Button>
-          </Link>
+      {nudges.length > 0 && (
+        <div className="mb-5 space-y-2">
+          {nudges.map((nudge) => (
+            <div key={nudge.projectId} className="rounded-[16px] border border-amber-700/30 bg-amber-500/10 px-4 py-3 text-[13px] text-amber-800">
+              {nudge.name} is nearing its requests-per-day limit. Consider a tier upgrade; nothing is blocked.
+            </div>
+          ))}
+        </div>
+      )}
+
+      {loading ? (
+        <p className={t.muted}>Loading projects…</p>
+      ) : error ? (
+        <div className={`rounded-[20px] border p-8 text-center ${t.card}`}>
+          <p className={t.muted}>{error}</p>
+          <PrimaryLink href="/login" className="mt-5">Log in</PrimaryLink>
+        </div>
+      ) : projects.length === 0 ? (
+        <div className={`rounded-[20px] border p-10 text-center ${t.card}`}>
+          <p className={t.muted}>No projects yet.</p>
+          <PrimaryLink href="/quote" className="mt-5">Get Started</PrimaryLink>
         </div>
       ) : (
-        <motion.div
-          variants={staggerContainer}
-          initial="hidden"
-          animate="show"
-        >
-          {/* Desktop table */}
-          <table className="hidden md:table w-full text-sm">
-            <thead>
-              <tr className="border-b border-line text-left text-xs text-slate uppercase tracking-wider">
-                <th className="pb-sm font-medium">Reference</th>
-                <th className="pb-sm font-medium">Service</th>
-                <th className="pb-sm font-medium">Date</th>
-                <th className="pb-sm font-medium">Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {orders.map((order) => (
-                <motion.tr
-                  key={order.id}
-                  variants={staggerItem}
-                  className="border-b border-line hover:bg-accent-dim/40 transition-colors duration-150"
-                >
-                  <td className="py-md">
-                    <Link
-                      href={`/dashboard/orders/${order.id}`}
-                      className="font-mono text-ink no-underline hover:text-accent transition-colors duration-150 block w-full"
-                    >
-                      {order.referenceId}
-                    </Link>
-                  </td>
-                  <td className="py-md">
-                    <Link
-                      href={`/dashboard/orders/${order.id}`}
-                      className="text-ink no-underline hover:text-accent transition-colors duration-150 block w-full"
-                    >
-                      {order.service}
-                    </Link>
-                  </td>
-                  <td className="py-md">
-                    <Link
-                      href={`/dashboard/orders/${order.id}`}
-                      className="font-mono text-slate no-underline hover:text-accent transition-colors duration-150 block w-full"
-                    >
-                      {order.date}
-                    </Link>
-                  </td>
-                  <td className="py-md">
-                    <StatusBadge status={order.status} />
-                  </td>
-                </motion.tr>
-              ))}
-            </tbody>
-          </table>
-
-          {/* Mobile cards */}
-          <div className="md:hidden space-y-sm">
-            {orders.map((order) => (
-              <Link
-                key={order.id}
-                href={`/dashboard/orders/${order.id}`}
-                className="block border border-line rounded-sm p-md no-underline hover:border-ink transition-colors duration-150"
-              >
-                <div className="flex items-center justify-between mb-sm">
-                  <span className="font-mono text-sm text-ink">
-                    {order.referenceId}
-                  </span>
-                  <StatusBadge status={order.status} />
+        <div className="grid gap-3">
+          {projects.map((project) => (
+            <Link
+              key={project.id}
+              href={`/dashboard/project?id=${encodeURIComponent(project.id)}`}
+              className={`block rounded-[20px] border p-5 no-underline transition-transform hover:-translate-y-0.5 ${t.card}`}
+            >
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <p className={`text-[16px] font-semibold ${t.ink}`}>{project.name}</p>
+                  <p className={`mt-1 text-[13px] ${t.muted}`}>
+                    {serviceTitle(project.category)} · {project.tier_id} · {project.id}
+                  </p>
                 </div>
-                <p className="text-sm text-ink">{order.service}</p>
-                <p className="text-xs text-slate font-mono">{order.date}</p>
-              </Link>
-            ))}
-          </div>
-        </motion.div>
+                <StatusBadge status={project.status} />
+              </div>
+            </Link>
+          ))}
+        </div>
       )}
     </div>
   );
