@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
-import { serviceBySlug, services } from "@/lib/services";
+import { services } from "@/lib/legacy-utils";
 import ServicePageClient from "./ServicePageClient";
 
 export function generateStaticParams() {
@@ -13,20 +12,17 @@ export async function generateMetadata({
   params: Promise<{ slug: string }>;
 }): Promise<Metadata> {
   const { slug } = await params;
-  const service = serviceBySlug(slug);
-  if (!service) return { title: "Services — TechRepubliQ" };
+  const service = services.find((s) => s.slug === slug);
+  if (!service) {
+    return { title: "Services — TechRepubliQ" };
+  }
   return {
     title: `${service.title} — TechRepubliQ`,
-    description: service.short,
+    description: service.description,
   };
 }
 
-export default async function Page({
-  params,
-}: {
-  params: Promise<{ slug: string }>;
-}) {
+export default async function Page({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  if (!serviceBySlug(slug)) notFound();
   return <ServicePageClient slug={slug} />;
 }

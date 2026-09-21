@@ -1,17 +1,19 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { motion } from "motion/react";
-import { Button } from "@/components/Button";
-import { services } from "@/lib/utils";
+import { useEffect, useState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { PageWrap, PrimaryButton, SignalPanel, TextInput, Field } from "@/components/product-ui";
 import { api } from "@/lib/api";
+import { services } from "@/lib/services";
 import {
   formatMoney,
   fxLine,
+  installmentSummary,
   PROVIDER_LABEL,
   type PaymentIntent,
 } from "@/lib/payments/provider";
-import { useRouter } from "next/navigation";
+import { useTone } from "@/lib/theme";
 
 declare global {
   interface Window {
@@ -21,6 +23,7 @@ declare global {
 
 export default function CheckoutPage() {
   const router = useRouter();
+  const t = useTone();
   const [agreed, setAgreed] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -38,13 +41,13 @@ export default function CheckoutPage() {
   const [intentError, setIntentError] = useState("");
 
   useEffect(() => {
-    const sp = new URLSearchParams(window.location.search);
+    const search = new URLSearchParams(window.location.search);
     setParams({
-      ref: sp.get("ref") ?? "",
-      category: sp.get("category") ?? "",
-      discountCode: sp.get("discount") ?? "",
-      cadence: sp.get("cadence") === "monthly" ? "monthly" : "annual",
-      devFeeMode: sp.get("devFeeMode") === "installments" ? "installments" : "once",
+      ref: search.get("ref") ?? "",
+      category: search.get("category") ?? "",
+      discountCode: search.get("discount") ?? "",
+      cadence: search.get("cadence") === "monthly" ? "monthly" : "annual",
+      devFeeMode: search.get("devFeeMode") === "installments" ? "installments" : "once",
     });
     setEmail(sessionStorage.getItem("customer_email") ?? "");
 
@@ -52,14 +55,13 @@ export default function CheckoutPage() {
       const script = document.createElement("script");
       script.src = "https://js.paystack.co/v1/inline.js";
       script.onload = () => setScriptLoaded(true);
+      script.onerror = () => setScriptLoaded(false);
       document.body.appendChild(script);
     } else {
       setScriptLoaded(true);
     }
   }, []);
 
-  // The total comes from the server, recomputed from the stored quote. The browser never
-  // works out money, and the rate shown is the one locked onto the intent.
   const emailIsValid = /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email.trim());
 
   useEffect(() => {
@@ -68,10 +70,10 @@ export default function CheckoutPage() {
       setIntentError("");
       return;
     }
+
     let cancelled = false;
     setIntent(null);
     setIntentError("");
-
     api.payments
       .createIntent({
         quoteRef: params.ref,
@@ -80,36 +82,39 @@ export default function CheckoutPage() {
         devFeeMode: params.devFeeMode === "installments" ? "installments" : "once",
         discountCode: params.discountCode || undefined,
       })
-      .then((res) => {
+      .then((response) => {
         if (cancelled) return;
-        if ("intent" in res) setIntent(res.intent);
-        else setIntentError(res.error ?? "Could not price this quote");
+        if ("intent" in response) setIntent(response.intent);
+        else setIntentError(response.error ?? "Could not price this quote");
       })
-      .catch(() => {
-        if (!cancelled) setIntentError("Could not reach the payment service");
+      .catch((requestError) => {
+        if (!cancelled) {
+          setIntentError(requestError instanceof Error ? requestError.message : "Could not reach the payment service");
+        }
       });
 
     return () => {
       cancelled = true;
     };
-  }, [params.ref, params.discountCode, params.cadence, params.devFeeMode, email, emailIsValid]);
+  }, [email, emailIsValid, params.cadence, params.devFeeMode, params.discountCode, params.ref]);
 
-  const service = services.find((s) => s.slug === params.category);
+  const service = services.find((item) => item.slug === params.category);
   const total = intent ? formatMoney(intent.amountMinor, intent.currency) : "—";
   const rate = intent ? fxLine(intent.fx, intent.currency) : null;
+  const schedule = intent ? installmentSummary(intent.installments, intent.currency) : null;
+
   const handlePay = async () => {
     if (!emailIsValid) {
       setEmailError("Enter a valid email address so we can send your invoice.");
       return;
     }
     if (!intent) return;
+
     sessionStorage.setItem("customer_email", email.trim());
     setLoading(true);
     setError("");
-
     const payload = intent.payload;
 
-    // Stripe and PayPal are hosted: the browser just follows the URL.
     if (payload.kind === "stripe") {
       if (!payload.url) {
         setError("Could not open the card payment page. Please try again.");
@@ -119,6 +124,7 @@ export default function CheckoutPage() {
       window.location.href = payload.url;
       return;
     }
+
     if (payload.kind === "paypal") {
       if (!payload.approvalUrl) {
         setError("Could not open PayPal. Please try again.");
@@ -129,7 +135,6 @@ export default function CheckoutPage() {
       return;
     }
 
-    // Paystack Inline — the key, amount and reference all come from the intent.
     if (!scriptLoaded || !window.PaystackPop) {
       setError("Payment window is still loading. Please try again in a moment.");
       setLoading(false);
@@ -139,7 +144,7 @@ export default function CheckoutPage() {
     try {
       const handler = window.PaystackPop.setup({
         key: payload.publicKey,
-        email: payload.email || sessionStorage.getItem("customer_email") || "customer@example.com",
+        email: payload.email || email.trim(),
         amount: payload.amountKobo,
         currency: intent.currency,
         ref: payload.reference,
@@ -158,9 +163,7 @@ export default function CheckoutPage() {
             },
           ],
         },
-        callback: () => {
-          router.push(`/checkout/confirmation?ref=${params.ref}`);
-        },
+        callback: () => router.push(`/checkout/confirmation?ref=${params.ref}`),
         onClose: () => {
           setLoading(false);
           setError("Payment window was closed. You can try again.");
@@ -173,125 +176,96 @@ export default function CheckoutPage() {
     }
   };
 
-  return (
-    <div className="mx-auto max-w-[960px] px-md py-xl">
-      <h1 className="font-display text-[28px] leading-[36px] font-semibold text-ink mb-lg">Checkout</h1>
-
-      <div className="flex flex-col lg:flex-row gap-xl">
-        <div className="flex-1 max-w-[440px]">
-          <div className="bg-accent-dim border border-line rounded-sm p-lg">
-            <h2 className="text-md font-display font-semibold text-ink mb-md">Order summary</h2>
-            <div className="space-y-sm text-sm">
-              <div className="flex justify-between">
-                <span className="text-slate">Service</span>
-                <span className="font-mono text-ink">{service?.title ?? "Custom project"}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate">Quote ref</span>
-                <span className="font-mono text-ink">{params.ref}</span>
-              </div>
-              <div className="border-t border-line pt-sm flex justify-between font-medium">
-                <span className="text-ink">Total</span>
-                <span className="font-mono text-ink text-lg">{total}</span>
-              </div>
-              {rate && <p className="text-xs text-slate pt-xs">{rate}</p>}
-              {intent?.fx?.stale && (
-                <p className="text-xs text-warning pt-xs">
-                  This rate may be out of date — we&apos;ll confirm the final amount before charging.
-                </p>
-              )}
-            </div>
-          </div>
+  if (!params.ref) {
+    return (
+      <PageWrap>
+        <div className="mx-auto max-w-[480px] px-6 py-24 text-center">
+          <p className={t.muted}>Start with a quote before opening checkout.</p>
+          <Link href="/quote" className="mt-4 inline-block text-[#C8102E]">
+            Get Started
+          </Link>
         </div>
+      </PageWrap>
+    );
+  }
 
-        <div className="flex-1 max-w-[440px]">
-          <div className="border border-line rounded-sm p-lg">
-            <h2 className="text-md font-display font-semibold text-ink mb-md">Payment</h2>
+  return (
+    <PageWrap>
+      <div className="mx-auto max-w-[720px] px-6 py-12 lg:py-16">
+        <h1 className={`font-display text-[28px] font-semibold ${t.ink}`}>Checkout</h1>
+        <p className={`mb-8 mt-2 text-[14px] ${t.muted}`}>
+          An unpaid invoice is prepared when payment starts. Pay to begin the build. There are no refunds once payment is made.
+        </p>
+        <div className="grid gap-6 lg:grid-cols-2">
+          <SignalPanel>
+            <p className="text-[12px] font-semibold uppercase tracking-[0.08em] text-[#C8102E]">Due today</p>
+            <p className={`mt-3 font-display text-[36px] font-semibold tabular-nums ${t.ink}`}>{total}</p>
+            <p className={`mt-2 text-[13px] ${t.muted}`}>
+              {service?.title ?? "Custom project"} · {params.devFeeMode === "installments" ? "12 installments" : "pay once"} · {params.cadence}
+            </p>
+            {rate && <p className={`mt-4 text-[12px] ${t.muted}`}>{rate}</p>}
+            {schedule && <p className={`mt-2 text-[12px] ${t.muted}`}>{schedule}</p>}
+            {intent?.fx?.stale && (
+              <p className="mt-3 text-[12px] text-amber-700">
+                This exchange rate may be out of date — we&apos;ll confirm the final amount before charging.
+              </p>
+            )}
+          </SignalPanel>
 
-            <div className="mb-lg">
-              <label htmlFor="checkout-email" className="text-sm font-medium text-ink mb-sm block">
-                Email for your invoice <span className="text-error">*</span>
-              </label>
-              <input
-                id="checkout-email"
+          <div className={`rounded-[20px] border p-6 ${t.card}`}>
+            <Field label="Invoice email">
+              <TextInput
                 type="email"
                 value={email}
-                onChange={(e) => {
-                  setEmail(e.target.value);
+                onChange={(event) => {
+                  setEmail(event.target.value);
                   setEmailError("");
                 }}
+                placeholder="you@company.com"
                 autoComplete="email"
-                required
-                placeholder="you@example.com"
-                className={`w-full border rounded-sm px-md py-sm text-sm font-body text-ink bg-paper focus:border-accent outline-none transition-colors duration-150 ${emailError ? "border-error" : "border-line"}`}
                 aria-invalid={!!emailError}
-                aria-describedby={emailError ? "checkout-email-error" : undefined}
               />
-              {emailError && (
-                <p id="checkout-email-error" className="text-xs text-error mt-xs">
-                  {emailError}
-                </p>
-              )}
-              <p className="text-xs text-slate mt-xs">
-                We&apos;ll send the unpaid invoice now and a paid copy when your payment clears.
-              </p>
-            </div>
+            </Field>
+            {emailError && <p className="mt-2 text-[12px] text-[#8C2F1B]">{emailError}</p>}
 
-            <p className="text-xs text-slate mb-md">
-              {intent
-                ? `Pay securely with ${PROVIDER_LABEL[intent.provider]} (${intent.currency})`
-                : "Preparing your payment…"}
+            <p className={`mb-4 mt-5 text-[12px] ${t.muted}`}>
+              {intent ? `Pay securely with ${PROVIDER_LABEL[intent.provider]} (${intent.currency})` : "Preparing your payment…"}
             </p>
 
-            <div className="border border-line rounded-sm p-md mb-lg text-sm text-slate bg-paper">
-              <p className="text-ink font-medium mb-sm">
-                {intent?.installments ? "Twelve payments, no refunds" : "No refunds"}
+            <div className={`mb-5 rounded-[12px] border p-4 text-[13px] ${t.muted} ${t.border}`}>
+              <p className={`mb-1 font-medium ${t.ink}`}>
+                {intent?.installments ? "Twelve payments, no markup" : "No refunds"}
               </p>
               <p>
                 {intent?.installments
-                  ? "Spreading the fee is a commitment to pay all twelve payments. Service continues during a 7-day grace window if one fails, but cancelling isn't an option once you've started."
+                  ? "The development fee is split into twelve even payments. The first is taken at checkout; the schedule is shown above."
                   : "Every project is scoped and priced before work starts, and payment is a commitment to the full amount."}{" "}
                 See the{" "}
-                <a href="/terms" target="_blank" className="text-accent hover:text-accent-hover underline">
+                <Link href="/terms" target="_blank" className="text-[#C8102E] underline">
                   Service Agreement
-                </a>{" "}
-                for the details.
+                </Link>
+                .
               </p>
             </div>
 
-            <label className="flex items-start gap-sm text-sm text-slate mb-lg cursor-pointer">
-              <input type="checkbox" checked={agreed} onChange={(e) => setAgreed(e.target.checked)} className="mt-1 accent-accent" />
+            <label className={`mb-5 flex cursor-pointer items-start gap-2 text-[13px] ${t.muted}`}>
+              <input type="checkbox" checked={agreed} onChange={(event) => setAgreed(event.target.checked)} className="mt-1" />
               <span>
                 I agree to the{" "}
-                <a href="/terms" target="_blank" className="text-accent hover:text-accent-hover underline">
+                <Link href="/terms" target="_blank" className="text-[#C8102E] underline">
                   Service Agreement
-                </a>
+                </Link>
               </span>
             </label>
 
-            {(error || intentError) && (
-              <motion.div
-                initial={{ y: -10, opacity: 0 }}
-                animate={{ y: 0, opacity: 1 }}
-                transition={{ duration: 0.22, ease: [0.2, 0.8, 0.2, 1] }}
-                role="alert"
-                className="bg-error/10 border border-error rounded-sm p-md text-sm text-error mb-md"
-              >
-                {error || intentError}
-              </motion.div>
-            )}
+            {(error || intentError) && <p role="alert" className="mb-4 text-[13px] text-[#8C2F1B]">{error || intentError}</p>}
 
-            <Button
-              className="w-full"
-              disabled={!agreed || !intent || loading}
-              loading={loading || (!!params.ref && emailIsValid && !intent && !intentError)}
-              onClick={handlePay}
-            >
-              {intent ? `Pay ${total}` : "Preparing…"}
-            </Button>
+            <PrimaryButton className="w-full" disabled={!agreed || !intent || loading} onClick={handlePay}>
+              {loading ? "Opening payment…" : intent ? `Pay ${total}` : "Preparing…"}
+            </PrimaryButton>
           </div>
         </div>
       </div>
-    </div>
+    </PageWrap>
   );
 }

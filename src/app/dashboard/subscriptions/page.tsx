@@ -1,124 +1,68 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useState } from "react";
-import { StatusBadge, type ProjectStatus } from "@/components/StatusBadge";
-import { api, type ProjectRow } from "@/lib/api";
-import { formatMoney } from "@/lib/payments/provider";
+import Link from "next/link";
+import { api, type ProjectRow, type ServiceRow } from "@/lib/api";
+import { formatUsd } from "@/lib/product";
+import { useTone } from "@/lib/theme";
+import { StatusBadge } from "@/components/StatusBadge";
 
-function formatDate(value: string | null): string {
-  if (!value) return "—";
-  const date = new Date(value.includes("T") ? value : `${value.replace(" ", "T")}Z`);
-  if (Number.isNaN(date.getTime())) return value.slice(0, 10);
-  return date.toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
-}
-
-/** Everything that renews, in one place: Project Services and any fee being spread. */
 export default function SubscriptionsPage() {
-  const [projects, setProjects] = useState<ProjectRow[] | null>(null);
+  const t = useTone();
+  const [rows, setRows] = useState<{ project: ProjectRow; service: ServiceRow }[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     api.projects
       .list()
-      .then((res) => setProjects(res.projects))
-      .catch(() => setProjects([]));
+      .then(({ projects }) => {
+        setRows(
+          projects.flatMap((project) =>
+            (project.services ?? [])
+              .filter((service) => service.kind === "addon")
+              .map((service) => ({ project, service }))
+          )
+        );
+      })
+      .catch((requestError) => setError(requestError instanceof Error ? requestError.message : "Could not load subscriptions."))
+      .finally(() => setLoading(false));
   }, []);
-
-  if (projects === null) return <div className="h-48 w-full bg-accent-dim rounded-sm animate-pulse" />;
-
-  if (projects.length === 0) {
-    return (
-      <div>
-        <h1 className="font-display text-[28px] leading-[36px] font-semibold text-ink mb-lg">
-          Subscriptions
-        </h1>
-        <div className="text-center py-xl border border-line rounded-sm">
-          <p className="text-base text-slate mb-md">Nothing renewing yet.</p>
-          <Link href="/quote" className="text-sm text-accent hover:text-accent-hover no-underline">
-            Start a project →
-          </Link>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div>
-      <h1 className="font-display text-[28px] leading-[36px] font-semibold text-ink mb-lg">
-        Subscriptions
-      </h1>
-
-      <div className="space-y-lg">
-        {projects.map((project) => {
-          const monthly = (project.services ?? []).reduce(
-            (sum, service) => sum + (service.status === "Active" ? service.monthly_cents : 0),
-            0
-          );
-
-          return (
-            <section key={project.id} className="border border-line rounded-sm">
-              <header className="flex items-center justify-between gap-sm flex-wrap p-md border-b border-line">
-                <div>
-                  <Link
-                    href={`/dashboard/project?id=${project.id}`}
-                    className="text-sm text-ink no-underline hover:text-accent"
-                  >
-                    {project.name}
-                  </Link>
-                  <p className="text-xs text-slate font-mono mt-xs">
-                    {project.cadence === "monthly" ? "Monthly" : "Annual"} billing · $
-                    {(monthly / 100).toLocaleString()}/mo
-                  </p>
-                </div>
-                <StatusBadge status={project.status as ProjectStatus} />
-              </header>
-
-              <ul className="divide-y divide-line">
-                {(project.services ?? []).map((service) => (
-                  <li key={service.id} className="p-md flex items-center justify-between gap-sm flex-wrap">
-                    <div className="min-w-0">
-                      <p className="text-sm text-ink">{service.name}</p>
-                      <p className="text-xs text-slate font-mono mt-xs">
-                        ${(service.monthly_cents / 100).toLocaleString()}/mo · renews{" "}
-                        {formatDate(service.renews_on)}
-                      </p>
-                    </div>
-                    <StatusBadge status={service.status as ProjectStatus} />
-                  </li>
-                ))}
-
-                {project.installments && (
-                  <li className="p-md flex items-center justify-between gap-sm flex-wrap bg-paper">
-                    <div>
-                      <p className="text-sm text-ink">Development fee</p>
-                      <p className="text-xs text-slate font-mono mt-xs">
-                        {project.installments.paid} of {project.installments.count} paid
-                        {project.installments.nextDueAt && project.installments.nextAmountMinor !== null && (
-                          <>
-                            {" · next "}
-                            {formatMoney(project.installments.nextAmountMinor, project.installments.currency)}
-                            {" on "}
-                            {formatDate(project.installments.nextDueAt)}
-                          </>
-                        )}
-                      </p>
-                    </div>
-                    <StatusBadge
-                      status={
-                        project.installments.status === "Completed"
-                          ? "Paid"
-                          : project.installments.status === "Defaulted"
-                            ? "Grace period"
-                            : "Active"
-                      }
-                    />
-                  </li>
-                )}
-              </ul>
-            </section>
-          );
-        })}
-      </div>
+      <h1 className={`font-display text-[28px] font-semibold ${t.ink}`}>Subscriptions</h1>
+      <p className={`mb-8 mt-1 text-[14px] ${t.muted}`}>
+        Recurring project services. Each service renews separately and can be cancelled from its project.
+      </p>
+      {loading ? (
+        <p className={t.muted}>Loading subscriptions…</p>
+      ) : error ? (
+        <p className={t.muted}>{error}</p>
+      ) : rows.length === 0 ? (
+        <p className={t.muted}>No recurring services yet.</p>
+      ) : (
+        <div className="space-y-3">
+          {rows.map(({ project, service }) => (
+            <Link
+              key={service.id}
+              href={`/dashboard/project?id=${encodeURIComponent(project.id)}&tab=services`}
+              className={`flex flex-wrap items-center justify-between gap-3 rounded-[16px] border p-4 no-underline ${t.card}`}
+            >
+              <div>
+                <p className={`text-[14px] font-semibold ${t.ink}`}>{service.name}</p>
+                <p className={`text-[12px] ${t.muted}`}>{project.name}</p>
+              </div>
+              <div className="flex items-center gap-3">
+                <span className={`text-[13px] tabular-nums ${t.muted}`}>
+                  {formatUsd(service.monthly_cents)}/mo{service.renews_on ? ` · renews ${service.renews_on}` : ""}
+                </span>
+                <StatusBadge status={service.status} />
+              </div>
+            </Link>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

@@ -1,495 +1,209 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { Button } from "@/components/Button";
-import { StatusBadge, type ProjectStatus } from "@/components/StatusBadge";
-import { api, type ProjectRow, type ServiceRow } from "@/lib/api";
-import { formatMoney } from "@/lib/payments/provider";
-import { cn } from "@/lib/utils";
-import { EditsTab } from "@/components/dashboard/EditsTab";
-import { AnalyticsTab } from "@/components/dashboard/AnalyticsTab";
-import { EmailTab } from "@/components/dashboard/EmailTab";
-import { ADDON_CATALOG } from "@/lib/product";
+import { api, type AnalyticsPayload, type ProjectRow, type ServiceRow } from "@/lib/api";
+import { ADDON_CATALOG, formatUsd, revisionLabel, tierById } from "@/lib/product";
+import { useTone } from "@/lib/theme";
+import { Card, PrimaryButton, SelectInput, TextArea, TextInput } from "@/components/product-ui";
+import { StatusBadge } from "@/components/StatusBadge";
+import { Modal } from "@/components/Modal";
 
-type Tab = "preview" | "services" | "edits" | "analytics" | "database" | "email";
-
-const TABS: { id: Tab; label: string }[] = [
-  { id: "preview", label: "Preview" },
-  { id: "services", label: "Services" },
-  { id: "edits", label: "Edits" },
-  { id: "analytics", label: "Analytics" },
-  { id: "database", label: "Database" },
-];
-
-/** §13 — the Email Center only exists for projects paying for the add-on. */
-const EMAIL_TAB: { id: Tab; label: string } = { id: "email", label: "Email" };
-
-interface Detail {
-  project: ProjectRow;
-  services: ServiceRow[];
-  revisions: { included: number; used: number; purchased: number };
-  installments: {
-    planId: string;
-    paid: number;
-    count: number;
-    currency: string;
-    nextDueAt: string | null;
-    nextAmountMinor: number | null;
-    nextSeq: number | null;
-    status: string;
-  } | null;
-}
-
-function formatDate(value: string | null): string {
-  if (!value) return "—";
-  const date = new Date(value.includes("T") ? value : `${value.replace(" ", "T")}Z`);
-  if (Number.isNaN(date.getTime())) return value.slice(0, 10);
-  return date.toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
-}
+const tabs = ["Preview", "Services", "Analytics", "Database", "Email", "Migration"] as const;
+type Tab = (typeof tabs)[number];
 
 export default function ProjectPage() {
-  // Read from the URL rather than useSearchParams: this page is statically exported, and
-  // useSearchParams would demand a Suspense boundary for no benefit here.
-  const [id, setId] = useState<string | null>(null);
-
-  const [tab, setTab] = useState<Tab>("preview");
-  const [detail, setDetail] = useState<Detail | null>(null);
+  const t = useTone();
+  const [id, setId] = useState("");
+  const [tab, setTab] = useState<Tab>("Preview");
+  const [project, setProject] = useState<ProjectRow | null>(null);
+  const [services, setServices] = useState<ServiceRow[]>([]);
+  const [revisions, setRevisions] = useState({ included: 0, used: 0, purchased: 0 });
+  const [analytics, setAnalytics] = useState<AnalyticsPayload | null>(null);
+  const [database, setDatabase] = useState<{ applicable: boolean; message?: string; records?: Record<string, number>; note?: string } | null>(null);
+  const [emailCenter, setEmailCenter] = useState<{ mailbox: string | null; messages: { id: string; direction: "inbound" | "outbound"; from_addr: string; subject: string; body: string; sent_at: string; read_at: string | null }[]; unread: number } | null>(null);
+  const [cancelId, setCancelId] = useState<string | null>(null);
+  const [addonOpen, setAddonOpen] = useState(false);
+  const [migrationSent, setMigrationSent] = useState(false);
+  const [migrationCode, setMigrationCode] = useState("");
+  const [migrationOk, setMigrationOk] = useState(false);
   const [error, setError] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [otpSent, setOtpSent] = useState(false);
-  const [otpCode, setOtpCode] = useState("");
-  const [migrationNote, setMigrationNote] = useState("");
-  /** PRD §4.5 — cancelling a service needs a confirmation step, not one click. */
-  const [confirmingCancel, setConfirmingCancel] = useState<string | null>(null);
 
   useEffect(() => {
-    setId(new URLSearchParams(window.location.search).get("id") ?? "");
+    const search = new URLSearchParams(window.location.search);
+    const pid = search.get("id") ?? "";
+    const requestedTab = search.get("tab");
+    setId(pid);
+    if (requestedTab && tabs.some((item) => item.toLowerCase() === requestedTab)) {
+      setTab(tabs.find((item) => item.toLowerCase() === requestedTab) ?? "Preview");
+    }
+    if (!pid) return;
+    api.projects
+      .get(pid)
+      .then((response) => {
+        setProject(response.project);
+        setServices(response.services);
+        setRevisions(response.revisions);
+      })
+      .catch((requestError) => setError(requestError instanceof Error ? requestError.message : "Could not load project."));
   }, []);
 
-  const load = () => {
-    if (!id) return;
-    api.projects
-      .get(id)
-      .then((res) => setDetail(res as Detail))
-      .catch(() => setError("Couldn't load this project."));
-  };
+  useEffect(() => {
+    if (!id || !project) return;
+    if (tab === "Analytics") {
+      api.projects.analytics(id, "7d").then(setAnalytics).catch(() => setAnalytics(null));
+    }
+    if (tab === "Database") {
+      api.projects.database(id).then(setDatabase).catch(() => setDatabase(null));
+    }
+    if (tab === "Email") {
+      api.projects.email.list(id, "inbound").then(setEmailCenter).catch(() => setEmailCenter(null));
+    }
+  }, [id, project, tab]);
 
-  useEffect(load, [id]);
+  const visibleTabs = useMemo(
+    () => (services.some((service) => service.service_key === "email") ? tabs : tabs.filter((item) => item !== "Email")),
+    [services]
+  );
+
+  const updateService = (service: ServiceRow) => {
+    setServices((current) => current.map((item) => (item.id === service.id ? service : item)));
+  };
 
   const launch = async () => {
-    if (!detail) return;
-    setBusy(true);
     try {
-      await api.projects.launch(detail.project.id);
-      load();
-    } catch {
-      setError("Couldn't launch just now. Try again in a moment.");
+      const response = await api.projects.launch(id);
+      setProject(response.project);
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : "Could not publish project.");
     }
-    setBusy(false);
   };
 
-  const toggleService = async (service: ServiceRow) => {
-    if (!detail) return;
-    setBusy(true);
+  const buyReviews = async (count: number) => {
     try {
-      if (service.status === "Active") await api.projects.cancelService(detail.project.id, service.id);
-      else await api.projects.restoreService(detail.project.id, service.id);
-      setConfirmingCancel(null);
-      load();
-    } catch {
-      setError("Couldn't update that service.");
+      const response = await api.edits.buyReviews(id, count);
+      setRevisions(response.revisions);
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : "Could not purchase reviews.");
     }
-    setBusy(false);
   };
 
-  const addAddon = async (addonId: string) => {
-    if (!detail || !addonId) return;
-    setBusy(true);
-    setError("");
-    try {
-      await api.projects.addService(detail.project.id, addonId);
-      load();
-    } catch (err) {
-      setError(
-        err instanceof Error && err.message.includes("402")
-          ? "Add-on pricing on your tier is arranged through Contact Sales."
-          : "Couldn't add that add-on just now."
-      );
-    }
-    setBusy(false);
-  };
-
-  const requestMigration = async () => {
-    if (!detail) return;
-    setBusy(true);
-    try {
-      await api.projects.requestMigration(detail.project.id);
-      setOtpSent(true);
-    } catch {
-      setError("Couldn't send the code.");
-    }
-    setBusy(false);
-  };
-
-  const confirmMigration = async () => {
-    if (!detail) return;
-    setBusy(true);
-    try {
-      const res = await api.projects.confirmMigration(detail.project.id, otpCode);
-      setMigrationNote(res.bundle?.note ?? "Migration ready.");
-      setOtpSent(false);
-      setOtpCode("");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "That code wasn't accepted.");
-    }
-    setBusy(false);
-  };
-
-  if (id === null) return <div className="h-64 w-full bg-accent-dim rounded-sm animate-pulse" />;
-
-  if (!id) {
+  if (!project) {
     return (
-      <div className="text-center py-xl border border-line rounded-sm">
-        <p className="text-base text-slate mb-md">Pick a project to open.</p>
-        <Link href="/dashboard">
-          <Button>Back to projects</Button>
-        </Link>
+      <div>
+        <p className={t.muted}>{error || "Loading project…"}</p>
+        {error && <Link href="/dashboard" className="text-[14px] text-[#C8102E]">Back to projects</Link>}
       </div>
     );
   }
 
-  if (error && !detail) {
-    return (
-      <div className="text-center py-xl border border-line rounded-sm">
-        <p className="text-base text-error mb-md">{error}</p>
-        <Link href="/dashboard">
-          <Button>Back to projects</Button>
-        </Link>
-      </div>
-    );
-  }
-
-  if (!detail) return <div className="h-64 w-full bg-accent-dim rounded-sm animate-pulse" />;
-
-  const { project, services, revisions, installments } = detail;
+  const tier = tierById(project.tier_id);
   const isMobile = project.category === "app-development";
-  const hasEmail = services.some((s) => s.service_key === "email" && s.status === "Active");
-
-  // PRD §3.2 — the dropdown offers what isn't already on the project. Re-adding an
-  // existing one restores it, so a cancelled add-on is offered again rather than hidden.
-  const installedAddons = new Set(
-    services
-      .filter((s) => s.kind === "addon" && s.service_key && s.status === "Active")
-      .map((s) => s.service_key as string)
-  );
-  const availableAddons = ADDON_CATALOG.filter((a) => !installedAddons.has(a.id));
-  const tabs = hasEmail ? [...TABS, EMAIL_TAB] : TABS;
+  const hasEmail = services.some((service) => service.service_key === "email");
 
   return (
     <div>
-      <Link
-        href="/dashboard"
-        className="text-sm text-slate hover:text-accent no-underline inline-block mb-sm"
-      >
-        ← Projects
-      </Link>
-
-      <div className="flex items-baseline justify-between gap-sm flex-wrap mb-lg">
+      <nav className={`mb-4 text-[13px] ${t.muted}`}>
+        <Link href="/dashboard" className="no-underline hover:text-[#C8102E]">Projects</Link>
+        <span className="mx-2">/</span>
+        <span className={t.ink}>{project.name}</span>
+      </nav>
+      <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="font-display text-[28px] leading-[36px] font-semibold text-ink">
-            {project.name}
-          </h1>
-          <p className="font-mono text-xs text-slate mt-xs">
-            {project.id} · {project.tier_id} · {project.category.replace(/-/g, " ")}
-          </p>
+          <h1 className={`font-display text-[28px] font-semibold ${t.ink}`}>{project.name}</h1>
+          <p className={`mt-1 text-[13px] ${t.muted}`}>{project.category} · {tier?.name ?? project.tier_id} · {project.id}</p>
         </div>
-        <StatusBadge status={project.status as ProjectStatus} />
+        <StatusBadge status={project.status} />
       </div>
 
-      {installments && (
-        <div className="border border-line rounded-sm p-md mb-lg bg-paper">
-          <p className="text-sm text-ink">
-            Development fee: {installments.paid} of {installments.count} paid
-            {installments.nextDueAt && installments.nextAmountMinor !== null && (
-              <>
-                {" · next "}
-                <span className="font-mono">
-                  {formatMoney(installments.nextAmountMinor, installments.currency)}
-                </span>
-                {" on "}
-                {formatDate(installments.nextDueAt)}
-              </>
-            )}
-          </p>
-          {installments.status === "Defaulted" && (
-            <p className="text-sm text-error mt-xs">
-              This plan is in default — we&apos;ll be in touch about settling the balance.
-            </p>
-          )}
-        </div>
-      )}
-
-      <nav className="flex border-b border-line mb-lg flex-wrap">
-        {tabs.map((item) => (
-          <button
-            key={item.id}
-            onClick={() => setTab(item.id)}
-            className={cn(
-              "px-md pb-sm text-sm font-body transition-colors duration-150",
-              tab === item.id
-                ? "text-accent border-b-2 border-accent"
-                : "text-slate hover:text-ink"
-            )}
-          >
-            {item.label}
+      <div className={`mb-6 flex gap-1 overflow-x-auto border-b ${t.border}`}>
+        {visibleTabs.map((item) => (
+          <button key={item} type="button" onClick={() => setTab(item)} className={`px-3 pb-3 text-[13px] font-medium ${tab === item ? "border-b-2 border-[#C8102E] text-[#C8102E]" : t.muted}`}>
+            {item}
           </button>
         ))}
-      </nav>
-
-      {error && <p className="text-sm text-error mb-md">{error}</p>}
-
-      {tab === "preview" && (
-        <div className="space-y-lg">
-          <div className="border border-line rounded-sm p-lg">
-            <h2 className="text-md font-display font-semibold text-ink mb-sm">Preview</h2>
-            {project.preview_url ? (
-              <p className="text-sm text-slate mb-md">
-                <a
-                  href={project.preview_url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="text-accent hover:text-accent-hover underline font-mono"
-                >
-                  {project.preview_url}
-                </a>
-              </p>
-            ) : (
-              <p className="text-sm text-slate mb-md">
-                {project.status === "Queued"
-                  ? "No preview available. You'll get a link here the moment the build starts."
-                  : "No preview available."}
-              </p>
-            )}
-
-            <div className="flex gap-sm flex-wrap">
-              {project.status !== "Live" && (
-                <Button onClick={launch} loading={busy}>
-                  {project.status === "Queued" ? "Start build" : "Go live"}
-                </Button>
-              )}
-              {project.status === "Live" && project.custom_domain && (
-                <span className="text-sm text-slate font-mono">{project.custom_domain}</span>
-              )}
-            </div>
-
-            {project.launch_at && (
-              <p className="text-xs text-slate mt-md">Launched {formatDate(project.launch_at)}</p>
-            )}
-          </div>
-
-          {isMobile && (
-            <div className="border border-line rounded-sm p-lg">
-              <h2 className="text-md font-display font-semibold text-ink mb-sm">Mobile build</h2>
-              <p className="text-sm text-slate">
-                UI/UX preview first, then a downloadable APK, then store deployment — each step shows
-                up here as it&apos;s ready.
-              </p>
-            </div>
-          )}
-
-          <div className="border border-line rounded-sm p-lg">
-            <h2 className="text-md font-display font-semibold text-ink mb-sm">Pre-launch reviews</h2>
-            <p className="text-sm text-slate">
-              {revisions.used} of {revisions.included + revisions.purchased} used ·{" "}
-              <button
-                onClick={() => setTab("edits")}
-                className="text-accent hover:text-accent-hover underline"
-              >
-                {project.status === "Live" ? "request an edit" : "buy more"}
-              </button>
-            </p>
-          </div>
-        </div>
-      )}
-
-      {tab === "edits" && <EditsTab projectId={project.id} status={project.status} />}
-
-      {tab === "services" && (
-        <div className="space-y-md">
-          {services.length === 0 && <p className="text-sm text-slate">No services on this project.</p>}
-
-          {services.map((service) => (
-            <div key={service.id} className="border border-line rounded-sm p-md">
-              <div className="flex items-start justify-between gap-sm flex-wrap">
-                <div className="min-w-0">
-                  <p className="text-sm text-ink">{service.name}</p>
-                  <p className="text-xs text-slate font-mono mt-xs">
-                    ${(service.monthly_cents / 100).toLocaleString()}/mo
-                    {service.renews_on ? ` · renews ${formatDate(service.renews_on)}` : ""}
-                  </p>
-                </div>
-                <div className="flex items-center gap-sm">
-                  <StatusBadge status={service.status as ProjectStatus} />
-                  {service.kind === "addon" && (
-                    <button
-                      onClick={() =>
-                        service.status === "Active"
-                          ? // PRD §4.5 — cancelling asks first; restoring is safe to do directly.
-                            setConfirmingCancel(service.id)
-                          : toggleService(service)
-                      }
-                      disabled={busy}
-                      className="text-xs text-accent hover:text-accent-hover underline disabled:opacity-50"
-                    >
-                      {service.status === "Active" ? "Cancel" : "Keep it"}
-                    </button>
-                  )}
-                </div>
-              </div>
-
-              {/* PRD §4.5 — the confirmation prompt, before anything is cancelled. */}
-              {confirmingCancel === service.id && (
-                <div className="mt-sm p-sm border border-error rounded-sm">
-                  <p className="text-xs text-ink mb-sm">
-                    You&apos;re about to cancel {service.name} — it will no longer be available on
-                    your app.
-                    {service.renews_on
-                      ? ` It keeps running until ${formatDate(service.renews_on)}, and nothing changes until then.`
-                      : ""}
-                  </p>
-                  <div className="flex items-center gap-sm">
-                    <button
-                      onClick={() => toggleService(service)}
-                      disabled={busy}
-                      className="text-xs font-medium text-white bg-error hover:opacity-90 px-sm py-xs rounded-sm disabled:opacity-50"
-                    >
-                      Cancel this service
-                    </button>
-                    <button
-                      onClick={() => setConfirmingCancel(null)}
-                      disabled={busy}
-                      className="text-xs text-slate hover:text-ink underline disabled:opacity-50"
-                    >
-                      Keep it
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {service.status === "Cancel at renewal" && (
-                <p className="text-xs text-slate mt-sm">
-                  Runs until {formatDate(service.renews_on)}, then stops. Nothing changes until then.
-                </p>
-              )}
-              {service.status === "Grace period" && (
-                <p className="text-xs text-error mt-sm">
-                  Payment overdue — service continues until {formatDate(service.grace_until ?? null)}.
-                </p>
-              )}
-            </div>
-          ))}
-
-          {/* PRD §3.2 / §9.2 — the same "Add additional add-on" control the quote page
-              offers, still available once the project is live. */}
-          <div className="border border-line rounded-sm p-md bg-paper">
-            <p className="text-sm text-slate mb-sm">
-              Hosting, backend and monitoring are always included. Anything else you switch on
-              here joins the project straight away and bills from your next renewal.
-            </p>
-            <select
-              value=""
-              onChange={(e) => e.target.value && addAddon(e.target.value)}
-              disabled={busy || availableAddons.length === 0}
-              className="w-full max-w-[340px] border border-line rounded-sm bg-canvas px-sm py-xs text-sm text-ink disabled:opacity-50"
-              aria-label="Add additional add-on"
-            >
-              <option value="">
-                {availableAddons.length === 0
-                  ? "Every add-on is already on this project"
-                  : "Add additional add-on…"}
-              </option>
-              {availableAddons.map((addon) => (
-                <option key={addon.id} value={addon.id}>
-                  {addon.label} — {addon.example}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="border border-line rounded-sm p-md">
-            <h3 className="text-sm font-display font-semibold text-ink mb-sm">Move this project</h3>
-            <p className="text-xs text-slate mb-md">
-              Owner-only and verified by email. You get the front-end bundle; hosting, backend and
-              database stay with us.
-            </p>
-            {migrationNote ? (
-              <p className="text-sm text-ink">{migrationNote}</p>
-            ) : otpSent ? (
-              <div className="flex gap-sm flex-wrap items-center">
-                <input
-                  value={otpCode}
-                  onChange={(e) => setOtpCode(e.target.value)}
-                  inputMode="numeric"
-                  placeholder="6-digit code"
-                  className="border border-line rounded-sm px-sm py-xs text-sm font-mono w-[140px]"
-                />
-                <Button onClick={confirmMigration} loading={busy}>
-                  Confirm
-                </Button>
-              </div>
-            ) : (
-              <Button onClick={requestMigration} loading={busy}>
-                Email me a code
-              </Button>
-            )}
-          </div>
-        </div>
-      )}
-
-      {tab === "analytics" && <AnalyticsTab projectId={project.id} status={project.status} />}
-
-      {tab === "database" && <DatabaseTab projectId={project.id} />}
-
-      {tab === "email" && hasEmail && <EmailTab projectId={project.id} />}
-    </div>
-  );
-}
-
-function DatabaseTab({ projectId }: { projectId: string }) {
-  const [state, setState] = useState<
-    { applicable: boolean; message?: string; records?: Record<string, number>; note?: string } | null
-  >(null);
-
-  useEffect(() => {
-    api.projects
-      .database(projectId)
-      .then(setState)
-      .catch(() => setState(null));
-  }, [projectId]);
-
-  if (!state) return <div className="h-24 w-full bg-accent-dim rounded-sm animate-pulse" />;
-
-  if (!state.applicable) {
-    return (
-      <div className="border border-line rounded-sm p-lg">
-        <p className="text-sm text-slate">{state.message ?? "Not applicable to this project."}</p>
       </div>
-    );
-  }
 
-  return (
-    <div className="border border-line rounded-sm p-lg">
-      <h2 className="text-md font-display font-semibold text-ink mb-sm">Database</h2>
-      <ul className="space-y-xs text-sm text-slate">
-        {Object.entries(state.records ?? {}).map(([key, value]) => (
-          <li key={key} className="flex justify-between">
-            <span>{key.replace(/([A-Z])/g, " $1").toLowerCase()}</span>
-            <span className="font-mono text-ink">{value.toLocaleString()}</span>
-          </li>
-        ))}
-      </ul>
-      {state.note && <p className="text-xs text-slate mt-md">{state.note}</p>}
+      {error && <p role="alert" className="mb-4 text-[13px] text-[#8C2F1B]">{error}</p>}
+
+      {tab === "Preview" && (
+        <div className="space-y-4">
+          <Card>
+            {!project.preview_url ? (
+              <>
+                <p className={`text-[16px] font-semibold ${t.ink}`}>No preview available.</p>
+                <p className={`mt-2 text-[14px] ${t.muted}`}>You&apos;ll get a TechRepubliQ subdomain — shareable, no watermark — when the first preview is ready.</p>
+              </>
+            ) : (
+              <>
+                <p className="text-[12px] uppercase tracking-wider text-[#C8102E]">Preview</p>
+                <a href={project.preview_url} target="_blank" rel="noreferrer" className={`mt-2 block text-[16px] ${t.ink}`}>{project.preview_url}</a>
+                {!project.launch_at && <PrimaryButton className="mt-5" onClick={launch}>Go Live / Publish</PrimaryButton>}
+                {project.launch_at && <p className={`mt-4 text-[13px] ${t.ink}`}>Live{project.custom_domain ? ` on ${project.custom_domain}` : ""}.</p>}
+              </>
+            )}
+          </Card>
+          {isMobile && <Card><p className={`font-semibold ${t.ink}`}>Mobile</p><p className={`mt-2 text-[14px] ${t.muted}`}>UI/UX preview appears here before a build exists. After approval you&apos;ll receive a downloadable APK and optional store deployment.</p></Card>}
+          {!project.launch_at && revisions.included + revisions.purchased - revisions.used > 0 && (
+            <Card>
+              <p className={`font-semibold ${t.ink}`}>Pre-launch reviews</p>
+              <p className={`mt-2 text-[14px] ${t.muted}`}>{revisions.included + revisions.purchased - revisions.used} included reviews remaining on {tier?.name ?? project.tier_id}. Extra reviews are $10 for +2 or $15 for +3.</p>
+              <div className="mt-3 flex gap-2">
+                <button className={`rounded-full border px-3 py-1.5 text-[12px] ${t.border} ${t.ink}`} onClick={() => buyReviews(2)}>$10 → +2</button>
+                <button className={`rounded-full border px-3 py-1.5 text-[12px] ${t.border} ${t.ink}`} onClick={() => buyReviews(3)}>$15 → +3</button>
+              </div>
+            </Card>
+          )}
+        </div>
+      )}
+
+      {tab === "Services" && (
+        <div className="space-y-3">
+          <p className={`text-[14px] ${t.muted}`}>Hosting and backend are always included. Recurring add-ons cancel at the next renewal — never mid-cycle. A 7-day grace period applies if a quota lapses.</p>
+          {services.map((service) => (
+            <Card key={service.id} className="flex flex-wrap items-center justify-between gap-3">
+              <div><p className={`font-semibold ${t.ink}`}>{service.name}</p><p className={`text-[12px] ${t.muted}`}>{formatUsd(service.monthly_cents)}/mo{service.renews_on ? ` · renews ${service.renews_on}` : ""}</p></div>
+              <div className="flex items-center gap-2"><StatusBadge status={service.status} />{service.kind === "addon" && service.status === "Active" && <button className="text-[13px] text-[#8C2F1B]" onClick={() => setCancelId(service.id)}>Cancel</button>}</div>
+            </Card>
+          ))}
+          <PrimaryButton onClick={() => setAddonOpen(true)}>Add additional add-on</PrimaryButton>
+        </div>
+      )}
+
+      {tab === "Analytics" && (
+        <Card>
+          {!analytics ? <p className={t.muted}>Loading traffic analytics…</p> : analytics.connected ? (
+            <div><p className={`font-semibold ${t.ink}`}>Last 7 days</p><div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">{[["Requests", analytics.totals.requests], ["Page views", analytics.totals.pageViews], ["Bytes", analytics.totals.bytes], ["Unique visitors", analytics.totals.uniques]].map(([label, value]) => <div key={String(label)} className={`rounded-[12px] border p-3 ${t.border}`}><p className={`text-[12px] ${t.muted}`}>{label}</p><p className={`mt-1 text-[18px] font-semibold ${t.ink}`}>{Number(value).toLocaleString()}</p></div>)}</div></div>
+          ) : <p className={t.muted}>{analytics.reason ?? "Analytics are not connected yet."}</p>}
+        </Card>
+      )}
+
+      {tab === "Database" && (
+        <Card>{!database ? <p className={t.muted}>Loading database…</p> : database.applicable ? <><p className={`font-semibold ${t.ink}`}>Your records</p><p className={`mt-1 text-[13px] ${t.muted}`}>{database.note ?? "This is your data — not our infrastructure."}</p><div className="mt-4 grid gap-2 sm:grid-cols-3">{Object.entries(database.records ?? {}).map(([key, value]) => <div key={key} className={`rounded-[12px] border p-3 ${t.border}`}><p className={`text-[12px] ${t.muted}`}>{key}</p><p className={`mt-1 font-semibold ${t.ink}`}>{value}</p></div>)}</div></> : <p className={t.muted}>{database.message ?? "Database does not apply to this project."}</p>}</Card>
+      )}
+
+      {tab === "Email" && hasEmail && (
+        <Card>{!emailCenter ? <p className={t.muted}>Loading Email Center…</p> : <><p className={`font-semibold ${t.ink}`}>Email Center</p><p className={`mt-1 text-[13px] ${t.muted}`}>{emailCenter.mailbox ?? "Mailbox pending domain setup."} · {emailCenter.unread} unread</p><div className="mt-4 space-y-2">{emailCenter.messages.map((message) => <div key={message.id} className={`rounded-[12px] border p-3 ${t.border}`}><p className={`text-[13px] font-medium ${t.ink}`}>{message.subject}</p><p className={`mt-1 text-[12px] ${t.muted}`}>{message.from_addr} · {message.body}</p></div>)}</div></>}</Card>
+      )}
+
+      {tab === "Migration" && (
+        <Card>
+          <p className={`font-semibold ${t.ink}`}>Cancel or migrate</p>
+          <p className={`mt-2 text-[14px] leading-[1.6] ${t.muted}`}>Only the project owner can request this. We&apos;ll email an OTP to the account. Downloadable source is front-end only — never the backend or how it connects. No GitHub linking.</p>
+          {!migrationSent && <PrimaryButton className="mt-4" onClick={async () => { try { await api.projects.requestMigration(id); setMigrationSent(true); } catch (requestError) { setError(requestError instanceof Error ? requestError.message : "Could not send OTP."); } }}>Email me an OTP</PrimaryButton>}
+          {migrationSent && !migrationOk && <div className="mt-4 space-y-3"><p className={`text-[13px] ${t.muted}`}>Enter the code we sent.</p><TextInput value={migrationCode} onChange={(event) => setMigrationCode(event.target.value)} placeholder="6-digit code" /><PrimaryButton disabled={migrationCode.length < 4} onClick={async () => { try { await api.projects.confirmMigration(id, migrationCode); setMigrationOk(true); } catch (requestError) { setError(requestError instanceof Error ? requestError.message : "That code is not valid."); } }}>Verify</PrimaryButton></div>}
+          {migrationOk && <p className={`mt-4 text-[13px] ${t.ink}`}>Verified. The front-end bundle is ready to request from the team.</p>}
+        </Card>
+      )}
+
+      <Modal isOpen={!!cancelId} onClose={() => setCancelId(null)} title="Cancel this service?">
+        <p className={`text-[14px] ${t.muted}`}>Cancellation takes effect at the next renewal, not immediately.</p>
+        <div className="mt-5 flex justify-end gap-2"><button className={t.muted} onClick={() => setCancelId(null)}>Keep it</button><PrimaryButton onClick={async () => { if (!cancelId) return; try { const response = await api.projects.cancelService(id, cancelId); updateService(response.service); setCancelId(null); } catch (requestError) { setError(requestError instanceof Error ? requestError.message : "Could not cancel service."); } }}>Confirm cancel</PrimaryButton></div>
+      </Modal>
+
+      <Modal isOpen={addonOpen} onClose={() => setAddonOpen(false)} title="Add additional add-on">
+        <div className="space-y-2">{ADDON_CATALOG.filter((addon) => !services.some((service) => service.service_key === addon.id)).map((addon) => <button key={addon.id} className={`flex w-full items-center justify-between rounded-[12px] border px-3 py-3 text-left ${t.border}`} onClick={async () => { try { const response = await api.projects.addService(id, addon.id); updateService(response.service); setAddonOpen(false); } catch (requestError) { setError(requestError instanceof Error ? requestError.message : "Could not add service."); } }}><span><span className={`block text-[14px] font-medium ${t.ink}`}>{addon.label}</span><span className={`block text-[12px] ${t.muted}`}>{addon.example}</span></span><span className="text-[13px] text-[#C8102E]">Add</span></button>)}</div>
+      </Modal>
     </div>
   );
 }

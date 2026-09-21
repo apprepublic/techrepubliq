@@ -1,71 +1,54 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useTone } from "@/lib/theme";
+import { PageWrap } from "@/components/product-ui";
 
 const clauses = [
   {
     id: "scope-of-delivery",
     heading: "1. Scope of Delivery",
-    body: "You are purchasing a functioning product or outcome, not access to the specific tools, infrastructure, or methods used to build or run it. The delivered product will perform as described in your accepted quote.",
+    body: "You are purchasing a functioning product or outcome, not access to the tools, infrastructure, vendors, or methods used to build or run it. Hosting and backend are always provided by TechRepubliQ.",
   },
   {
     id: "functionality-guarantee",
     heading: "2. Duration and Functionality Guarantee",
-    body: "Services purchased will function as described for the duration that was paid for, based on the specifications communicated at the time of payment. Any material deviation from the agreed scope will be corrected at no additional cost.",
+    body: "Services function as described for the duration paid for. Recurring add-ons run through the paid period; cancellation takes effect at the next renewal boundary, never mid-cycle.",
   },
   {
     id: "confidentiality",
     heading: "3. Confidentiality of Delivery Methods",
-    body: "All infrastructure, hosting providers, vendors, registrars, and internal AI/automation methods used to deliver the service are confidential and not subject to disclosure, before or after payment. These methods constitute our proprietary delivery framework and are not part of the purchased product.",
+    body: "Infrastructure, hosting providers, AI API vendors, email platforms, maps providers, registrars, and internal methods are confidential and not subject to disclosure, before or after payment. You see service line items and your own data only.",
   },
   {
     id: "ownership",
     heading: "4. Ownership on Delivery",
-    body: "You own the front-end code and content of your product. Ownership transfers to you upon full payment and delivery of the completed product as described in your quote.",
-  },
-  {
-    id: "hosting-and-backend",
-    heading: "5. Hosting and Backend",
-    body: "Hosting, backend services, and monitoring are provided by TechRepubliQ for the lifetime of your project and are not transferable. If you move your front-end code elsewhere, the hosted environment, backend, and database remain with us and the hosted product will no longer function. This is what your recurring Project Services cover.",
+    body: "You own the front-end code and content of your product. Backend structure, the front-end/backend connection, and proprietary automation remain TechRepubliQ’s.",
   },
   {
     id: "migration-rights",
-    heading: "6. Migration Rights",
-    body: "You may request migration files at any time from your dashboard. What you receive is the front-end bundle — the interface, assets, and client-side code — delivered as an archive, not as a repository. We do not hand over a GitHub organisation, a commit history, or access to any source-control account. Migration excludes proprietary AI automation components, which remain our property and are not portable. Migration files are provided within a reasonable timeframe.",
-  },
-  {
-    id: "owner-only-actions",
-    heading: "7. Owner-Only Actions",
-    body: "Requesting a migration or cancelling a service is restricted to the verified owner of the project and is confirmed by a one-time code sent to the email address on the account. This protects your project from being moved or cancelled by anyone else with access to a browser session.",
+    heading: "5. Migration Rights",
+    body: "Only the project owner may request cancellation or migration. An OTP sent to the account email must be confirmed first. Downloadable source is front-end only, delivered as a bundle — never via GitHub. Migration files do not include proprietary AI components or vendor credentials.",
   },
   {
     id: "domain-handling",
-    heading: "8. Domain Handling",
-    body: "We will transfer the domain to a registrar or account you specify on request. The prior registration and hosting details remain confidential and will not be disclosed.",
+    heading: "6. Domain Handling",
+    body: "You may buy a domain through TechRepubliQ or point an existing domain with the DNS details we provide. Bringing your own domain does not change hosting or backend coverage. Prior registrar details are not disclosed.",
   },
   {
     id: "no-account-access",
-    heading: "9. No Account-Level Access",
-    body: "You are not entitled to receipts, credentials, or account access for third-party services purchased on your behalf as part of a bundled service. These accounts are managed by us as part of the delivery infrastructure.",
+    heading: "7. No Account-Level Access",
+    body: "You are not entitled to receipts, credentials, or account access for third-party services used to deliver the product. Issues are handled by TechRepubliQ directly.",
   },
   {
     id: "payment-terms",
-    heading: "10. Payment Terms",
-    body: "Pricing is localized by geographic location and is non-transferable between regions. Where a development fee is split into monthly installments, the installments are a commitment to pay the full fee, not a subscription you can stop part-way through.",
-  },
-  {
-    id: "no-refunds",
-    heading: "11. No Refunds",
-    body: "All payments are final. We do not offer refunds, in full or in part, once a payment has been made — including for the one-time development fee, installments already charged, recurring Project Services, add-ons, or review packs. Work begins against your project as soon as an order is placed, which is why there is no cooling-off period. If something we delivered doesn't work as described in your accepted quote, we will fix it at no additional cost.",
-  },
-  {
-    id: "grace-period",
-    heading: "12. Grace Period and Service Removal",
-    body: "If a recurring payment fails, service continues for a grace period of seven days while we retry the card on file and email reminders. If the balance is still unpaid when the grace period ends, the add-on services attached to the project are removed. Your project itself, and everything already built and delivered, is never deleted for non-payment.",
+    heading: "8. Payment and Refunds",
+    body: "There are no refunds, for anything, once payment has been made. The one-time development fee and published projects cannot be cancelled for a refund. During the build, the path is the review/revision system (and extra-review add-ons if the included rounds are exhausted), not a refund. Recurring services have a 7-day grace period after a missed renewal or overage; then that specific service is removed.",
   },
 ];
 
 export default function TermsPage() {
+  const t = useTone();
   const [activeId, setActiveId] = useState(clauses[0].id);
   const observerRef = useRef<IntersectionObserver | null>(null);
 
@@ -73,82 +56,61 @@ export default function TermsPage() {
     observerRef.current = new IntersectionObserver(
       (entries) => {
         for (const entry of entries) {
-          if (entry.isIntersecting) {
-            setActiveId(entry.target.id);
-          }
+          if (entry.isIntersecting) setActiveId(entry.target.id);
         }
       },
       { rootMargin: "-80px 0px -60% 0px" }
     );
-
     clauses.forEach((c) => {
       const el = document.getElementById(c.id);
       if (el) observerRef.current?.observe(el);
     });
-
     return () => observerRef.current?.disconnect();
   }, []);
 
   return (
-    <div className="mx-auto max-w-[760px] px-md py-xl">
-      <div className="flex flex-col lg:flex-row gap-xl">
-        {/* Sticky TOC - desktop */}
-        <aside className="hidden lg:block w-[200px] shrink-0">
-          <nav className="sticky top-24 space-y-sm text-sm">
-            {clauses.map((c) => (
-              <a
-                key={c.id}
-                href={`#${c.id}`}
-                className={`block no-underline transition-colors duration-150 ${
-                  activeId === c.id ? "text-accent" : "text-slate hover:text-ink"
-                }`}
-              >
-                {c.heading}
-              </a>
-            ))}
-          </nav>
-        </aside>
-
-        {/* Mobile TOC */}
-        <details className="lg:hidden mb-lg border border-line rounded-sm">
-          <summary className="px-md py-sm text-sm font-body text-ink cursor-pointer">
-            Jump to section
-          </summary>
-          <nav className="px-md pb-sm space-y-sm text-sm">
-            {clauses.map((c) => (
-              <a
-                key={c.id}
-                href={`#${c.id}`}
-                className="block no-underline text-slate hover:text-ink transition-colors duration-150"
-              >
-                {c.heading}
-              </a>
-            ))}
-          </nav>
-        </details>
-
-        {/* Content */}
-        <div className="flex-1">
-          <h1 className="font-display text-[28px] leading-[36px] font-semibold text-ink mb-lg">
-            Terms of Service / Service Agreement
-          </h1>
-          <p className="text-sm text-slate mb-xl">
-            Last updated: September 2026. This agreement governs all services
-            provided by TechRepubliQ.
-          </p>
-
-          <div className="space-y-xl">
-            {clauses.map((c) => (
-              <section key={c.id} id={c.id}>
-                <h2 className="font-display text-md font-semibold text-ink mb-sm">
+    <PageWrap>
+      <div className="mx-auto max-w-[960px] px-6 py-12 lg:py-16">
+        <div className="flex flex-col lg:flex-row gap-12">
+          <aside className="hidden lg:block w-[220px] shrink-0">
+            <nav className="sticky top-24 space-y-2 text-[13px]">
+              {clauses.map((c) => (
+                <a
+                  key={c.id}
+                  href={`#${c.id}`}
+                  className={`block no-underline ${activeId === c.id ? "text-[#C8102E]" : t.muted}`}
+                >
                   {c.heading}
-                </h2>
-                <p className="text-sm text-slate leading-relaxed">{c.body}</p>
-              </section>
-            ))}
+                </a>
+              ))}
+            </nav>
+          </aside>
+          <details className={`lg:hidden rounded-[12px] border ${t.border}`}>
+            <summary className="px-4 py-3 text-[14px] cursor-pointer">Jump to section</summary>
+            <nav className="px-4 pb-3 space-y-2 text-[13px]">
+              {clauses.map((c) => (
+                <a key={c.id} href={`#${c.id}`} className={`block no-underline ${t.muted}`}>
+                  {c.heading}
+                </a>
+              ))}
+            </nav>
+          </details>
+          <div className="flex-1">
+            <h1 className={`font-display text-[32px] font-semibold ${t.ink}`}>Service Agreement</h1>
+            <p className={`mt-2 mb-10 text-[14px] ${t.muted}`}>
+              Last updated: September 2026. Governs every TechRepubliQ build and recurring service.
+            </p>
+            <div className="space-y-10">
+              {clauses.map((c) => (
+                <section key={c.id} id={c.id}>
+                  <h2 className={`font-display text-[18px] font-semibold ${t.ink}`}>{c.heading}</h2>
+                  <p className={`mt-2 text-[14px] leading-[1.7] ${t.muted}`}>{c.body}</p>
+                </section>
+              ))}
+            </div>
           </div>
         </div>
       </div>
-    </div>
+    </PageWrap>
   );
 }

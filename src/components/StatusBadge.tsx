@@ -1,9 +1,5 @@
 import { cn } from "@/lib/utils";
 
-/**
- * The status union grew with the project surface (WP5). The shape and the token colours
- * are unchanged — only the set of recognised values.
- */
 export type ProjectStatus =
   | "Paid"
   | "In Progress"
@@ -16,28 +12,28 @@ export type ProjectStatus =
   | "Grace period";
 
 interface StatusBadgeProps {
-  status: ProjectStatus;
+  status: string;
   className?: string;
 }
 
 const statusColors: Record<ProjectStatus, string> = {
-  Paid: "bg-success/10 text-success",
-  "In Progress": "bg-amber/10 text-amber",
-  Delivered: "bg-ink/10 text-ink",
-  Queued: "bg-ink/10 text-ink",
-  "In preview": "bg-amber/10 text-amber",
-  Live: "bg-success/10 text-success",
-  Active: "bg-success/10 text-success",
-  "Cancel at renewal": "bg-amber/10 text-amber",
-  "Grace period": "bg-error/10 text-error",
+  Paid: "bg-emerald-500/10 text-emerald-600",
+  "In Progress": "bg-amber-500/10 text-amber-700",
+  Delivered: "bg-black/10 text-inherit",
+  Queued: "bg-amber-500/10 text-amber-700",
+  "In preview": "bg-[rgba(200,16,46,0.1)] text-[#C8102E]",
+  Live: "bg-emerald-500/10 text-emerald-600",
+  Active: "bg-emerald-500/10 text-emerald-600",
+  "Cancel at renewal": "bg-amber-500/10 text-amber-700",
+  "Grace period": "bg-[#8C2F1B]/10 text-[#8C2F1B]",
 };
 
 export function StatusBadge({ status, className }: StatusBadgeProps) {
   return (
     <span
       className={cn(
-        "inline-block px-sm py-xs text-sm font-body font-medium rounded-sm whitespace-nowrap",
-        statusColors[status] ?? "bg-ink/10 text-ink",
+        "inline-flex items-center rounded-full px-3 py-1 text-[12px] font-medium",
+        statusColors[status as ProjectStatus] ?? "bg-black/10 text-inherit",
         className
       )}
     >

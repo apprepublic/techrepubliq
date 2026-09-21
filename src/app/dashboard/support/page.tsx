@@ -1,60 +1,66 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Button } from "@/components/Button";
-import { api } from "@/lib/api";
+import { api, type ProjectRow } from "@/lib/api";
+import { useTone } from "@/lib/theme";
+import { Card, Field, PrimaryButton, SelectInput, TextArea, TextInput } from "@/components/product-ui";
 
-/**
- * Service Center — the promise in §7, stated plainly: we hold the vendor accounts, so the
- * customer never inherits a third-party login to chase.
- */
 export default function SupportPage() {
-  const [info, setInfo] = useState<{ handled: string[]; note: string; contact: string } | null>(null);
+  const t = useTone();
+  const [sent, setSent] = useState(false);
+  const [project, setProject] = useState("");
+  const [body, setBody] = useState("");
+  const [projects, setProjects] = useState<ProjectRow[]>([]);
+  const [handled, setHandled] = useState<string[]>([]);
+  const [contact, setContact] = useState("");
+  const [error, setError] = useState("");
 
   useEffect(() => {
-    api.serviceCenter
-      .info()
-      .then(setInfo)
-      .catch(() => setInfo(null));
+    Promise.all([api.projects.list(), api.serviceCenter.info()])
+      .then(([projectResponse, serviceResponse]) => {
+        setProjects(projectResponse.projects);
+        setHandled(serviceResponse.handled);
+        setContact(serviceResponse.contact);
+      })
+      .catch((requestError) => setError(requestError instanceof Error ? requestError.message : "Could not load the service center."));
   }, []);
 
   return (
     <div>
-      <h1 className="font-display text-[28px] leading-[36px] font-semibold text-ink mb-md">
-        Service Center
-      </h1>
-
-      <p className="text-sm text-slate mb-lg max-w-[560px]">
-        {info?.note ??
-          "We run your project end to end. If something needs attention, it comes here rather than to a vendor's support queue."}
+      <h1 className={`font-display text-[28px] font-semibold ${t.ink}`}>Service Center</h1>
+      <p className={`mb-8 mt-1 text-[14px] ${t.muted}`}>
+        Chat or open a ticket on any product. We handle vendors — you never get a third-party login.
       </p>
-
-      <div className="border border-line rounded-sm p-lg mb-lg">
-        <h2 className="text-md font-display font-semibold text-ink mb-md">What we handle</h2>
-        {info ? (
-          <ul className="space-y-sm">
-            {info.handled.map((item) => (
-              <li key={item} className="flex gap-sm text-sm text-slate">
-                <span aria-hidden className="text-accent">
-                  —
-                </span>
-                {item}
-              </li>
-            ))}
+      <div className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
+        <Card>
+          {sent ? (
+            <p className={t.ink}>Ticket received. We&apos;ll reply at {contact || "your account email"}.</p>
+          ) : (
+            <div className="space-y-4">
+              <Field label="Project">
+                <SelectInput value={project} onChange={(event) => setProject(event.target.value)}>
+                  <option value="">Select a project…</option>
+                  {projects.map((item) => (
+                    <option key={item.id} value={item.id}>{item.name}</option>
+                  ))}
+                </SelectInput>
+              </Field>
+              <Field label="Subject"><TextInput placeholder="What&apos;s going on?" /></Field>
+              <Field label="Message"><TextArea value={body} onChange={(event) => setBody(event.target.value)} /></Field>
+              {error && <p className="text-[13px] text-[#8C2F1B]">{error}</p>}
+              <PrimaryButton disabled={!project || body.trim().length < 8} onClick={() => setSent(true)}>
+                Open ticket
+              </PrimaryButton>
+            </div>
+          )}
+        </Card>
+        <Card>
+          <p className={`font-semibold ${t.ink}`}>We handle</p>
+          <ul className={`mt-3 space-y-2 text-[13px] ${t.muted}`}>
+            {handled.map((item) => <li key={item}>• {item}</li>)}
           </ul>
-        ) : (
-          <div className="h-24 w-full bg-accent-dim rounded-sm animate-pulse" />
-        )}
-      </div>
-
-      <div className="border border-line rounded-sm p-lg">
-        <h2 className="text-md font-display font-semibold text-ink mb-sm">Something wrong?</h2>
-        <p className="text-sm text-slate mb-md">
-          Email us and it reaches the team that built your project — not a ticket queue.
-        </p>
-        <a href={`mailto:${info?.contact ?? "admin@techrepubliq.com"}`}>
-          <Button>{info?.contact ?? "admin@techrepubliq.com"}</Button>
-        </a>
+          {contact && <p className={`mt-4 text-[12px] ${t.muted}`}>Contact: {contact}</p>}
+        </Card>
       </div>
     </div>
   );

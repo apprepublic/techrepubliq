@@ -2,12 +2,14 @@
 
 import { useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { Button } from "@/components/Button";
 import { Eye, EyeOff } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { api } from "@/lib/api";
+import { PageWrap, PrimaryButton } from "@/components/product-ui";
+import { useTone } from "@/lib/theme";
+import { useTheme } from "@/components/ThemeProvider";
 
 type Tab = "login" | "signup";
 
@@ -31,6 +33,8 @@ const countries = [
 
 export default function LoginPage() {
   const router = useRouter();
+  const t = useTone();
+  const { theme } = useTheme();
   const [tab, setTab] = useState<Tab>("login");
   const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState("");
@@ -100,20 +104,23 @@ export default function LoginPage() {
     setTab("login"); setError(""); setSignupEmailError(""); setPasswordError("");
   };
 
+  const logoSrc = theme === "dark" ? "/assets/logo-black-bg.png?v=3" : "/assets/logo-white-bg.png?v=3";
+
   return (
-    <div className="mx-auto max-w-[400px] px-md min-h-[70vh] flex flex-col justify-center">
-      <div className="text-center mb-lg">
+    <PageWrap>
+    <div className="mx-auto max-w-[400px] px-6 min-h-[70vh] flex flex-col justify-center py-12">
+      <div className="text-center mb-8">
         <Link href="/" className="inline-flex items-center gap-2.5">
-          <Image src="/assets/logo-light.png" alt="TechRepubliQ" height={40} width={200} className="shrink-0" />
+          <Image src={logoSrc} alt="TechRepubliQ" height={40} width={200} className="shrink-0" unoptimized />
         </Link>
       </div>
-      <div className="border border-line rounded-sm p-lg bg-paper-raised">
+      <div className={`rounded-[20px] border p-6 ${t.card}`}>
         <div role="tablist" aria-label="Authentication" className="flex gap-lg mb-lg">
           <button role="tab" aria-selected={tab === "login"} onClick={switchToLogin}
-            className={`text-md font-body no-underline pb-sm transition-colors duration-150 ${tab === "login" ? "text-accent border-b-2 border-accent" : "text-slate hover:text-ink"}`}
+            className={`text-md font-body no-underline pb-sm transition-colors duration-150 ${tab === "login" ? "text-accent border-b-2 border-accent" : t.muted}`}
           >Log in</button>
           <button role="tab" aria-selected={tab === "signup"} onClick={() => { setTab("signup"); setError(""); setSignupEmailError(""); setPasswordError(""); }}
-            className={`text-md font-body no-underline pb-sm transition-colors duration-150 ${tab === "signup" ? "text-accent border-b-2 border-accent" : "text-slate hover:text-ink"}`}
+            className={`text-md font-body no-underline pb-sm transition-colors duration-150 ${tab === "signup" ? "text-accent border-b-2 border-accent" : t.muted}`}
           >Sign up</button>
         </div>
 
@@ -124,30 +131,30 @@ export default function LoginPage() {
             {tab === "signup" && (
               <>
                 <div className="mb-md">
-                  <label htmlFor="name" className="text-sm font-medium text-ink mb-sm block">Full name</label>
+                  <label htmlFor="name" className={`text-sm font-medium ${t.ink} mb-sm block`}>Full name</label>
                   <input id="name" type="text" value={name} onChange={(e) => setName(e.target.value)}
-                    className="w-full border border-line rounded-sm px-md py-sm text-sm font-body text-ink bg-paper focus:border-accent outline-none transition-colors duration-150" />
+                    className={`w-full border border-line rounded-sm px-md py-sm text-sm font-body ${t.ink} bg-paper focus:border-accent outline-none transition-colors duration-150`} />
                 </div>
 
                 <div className="mb-md">
-                  <label htmlFor="phone" className="text-sm font-medium text-ink mb-sm block">Phone number</label>
+                  <label htmlFor="phone" className={`text-sm font-medium ${t.ink} mb-sm block`}>Phone number</label>
                   <div className="flex gap-sm min-w-0">
                     <select value={phoneCountryCode} onChange={(e) => setPhoneCountryCode(e.target.value)}
-                      className="w-auto min-w-[100px] shrink-0 border border-line rounded-sm px-2 py-sm text-sm font-body text-ink bg-paper focus:border-accent outline-none transition-colors duration-150"
+                      className={`w-auto min-w-[100px] shrink-0 border border-line rounded-sm px-2 py-sm text-sm font-body ${t.ink} bg-paper focus:border-accent outline-none transition-colors duration-150`}
                     >
                       {countryCodes.map((cc) => (
                         <option key={cc.code + cc.country} value={cc.code}>{cc.label}</option>
                       ))}
                     </select>
                     <input id="phone" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="8012345678"
-                      className="min-w-0 flex-1 border border-line rounded-sm px-md py-sm text-sm font-body text-ink bg-paper focus:border-accent outline-none transition-colors duration-150" />
+                      className={`min-w-0 flex-1 border border-line rounded-sm px-md py-sm text-sm font-body ${t.ink} bg-paper focus:border-accent outline-none transition-colors duration-150`} />
                   </div>
                 </div>
 
                 <div className="mb-md">
-                  <label htmlFor="country" className="text-sm font-medium text-ink mb-sm block">Country</label>
+                  <label htmlFor="country" className={`text-sm font-medium ${t.ink} mb-sm block`}>Country</label>
                   <select id="country" value={country} onChange={(e) => setCountry(e.target.value)}
-                    className="w-full border border-line rounded-sm px-md py-sm text-sm font-body text-ink bg-paper focus:border-accent outline-none transition-colors duration-150"
+                    className={`w-full border border-line rounded-sm px-md py-sm text-sm font-body ${t.ink} bg-paper focus:border-accent outline-none transition-colors duration-150`}
                   >
                     <option value="">Select your country</option>
                     {countries.map((c) => <option key={c} value={c}>{c}</option>)}
@@ -157,9 +164,9 @@ export default function LoginPage() {
             )}
 
             <div className="mb-md">
-              <label htmlFor="email" className="text-sm font-medium text-ink mb-sm block">Email</label>
+              <label htmlFor="email" className={`text-sm font-medium ${t.ink} mb-sm block`}>Email</label>
               <input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)}
-                className={`w-full border rounded-sm px-md py-sm text-sm font-body text-ink bg-paper focus:border-accent outline-none transition-colors duration-150 ${signupEmailError ? "border-error" : "border-line"}`}
+                className={`w-full border rounded-sm px-md py-sm text-sm font-body ${t.ink} bg-paper focus:border-accent outline-none transition-colors duration-150 ${signupEmailError ? "border-error" : "border-line"}`}
                 aria-describedby={signupEmailError ? "email-error" : undefined} aria-invalid={!!signupEmailError} />
               {signupEmailError && (
                 <p id="email-error" className="text-xs text-error mt-xs">
@@ -170,29 +177,35 @@ export default function LoginPage() {
             </div>
 
             <div className="mb-lg">
-              <label htmlFor="password" className="text-sm font-medium text-ink mb-sm block">Password</label>
+              <label htmlFor="password" className={`text-sm font-medium ${t.ink} mb-sm block`}>Password</label>
               <div className="relative">
                 <input id="password" type={showPassword ? "text" : "password"} value={password}
                   onChange={(e) => { setPassword(e.target.value); setPasswordError(""); }}
-                  className={`w-full border rounded-sm px-md py-sm pr-xl text-sm font-body text-ink bg-paper focus:border-accent outline-none transition-colors duration-150 ${passwordError ? "border-error" : "border-line"}`}
+                  className={`w-full border rounded-sm px-md py-sm pr-xl text-sm font-body ${t.ink} bg-paper focus:border-accent outline-none transition-colors duration-150 ${passwordError ? "border-error" : "border-line"}`}
                   aria-describedby={passwordError ? "pw-error" : undefined} aria-invalid={!!passwordError} />
                 <button type="button" onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-sm top-1/2 -translate-y-1/2 text-slate hover:text-ink transition-colors duration-150"
+                  className={`absolute right-sm top-1/2 -translate-y-1/2 ${t.muted} hover:${t.ink} transition-colors duration-150`}
                   aria-label={showPassword ? "Hide password" : "Show password"}>
                   {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                 </button>
               </div>
               {passwordError && <p id="pw-error" className="text-xs text-error mt-xs">{passwordError}</p>}
+              {tab === "login" && (
+                <Link href="/forgot-password" className="inline-block mt-xs text-xs text-accent hover:text-accent-hover no-underline transition-colors duration-150">
+                  Forgot password?
+                </Link>
+              )}
             </div>
 
             {error && <div role="alert" className="mb-md p-sm bg-error/10 border border-error rounded-sm text-sm text-error">{error}</div>}
 
-            <Button type="submit" className="w-full" loading={loading}>
-              {tab === "login" ? "Log in" : "Create account"}
-            </Button>
+            <PrimaryButton type="submit" className="w-full" disabled={loading}>
+              {loading ? "Please wait…" : tab === "login" ? "Log in" : "Create account"}
+            </PrimaryButton>
           </motion.form>
         </AnimatePresence>
       </div>
     </div>
+    </PageWrap>
   );
 }
